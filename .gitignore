@@ -9,6 +9,7 @@ venv/
 build/
 dist/
 *.spec
+!packaging/pyinstaller/BenchSim.spec
 *.egg-info/
 
 # Verilog simulation outputs

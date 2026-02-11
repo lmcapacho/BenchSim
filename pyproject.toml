@@ -20,5 +20,5 @@ dependencies = [
 ]
 
 [project.scripts]
-benchsim = "verilog_simulator.main:main"
-verilog-simulator = "verilog_simulator.main:main"
+benchsim = "benchsim.main:main"
+verilog-simulator = "benchsim.main:main"
