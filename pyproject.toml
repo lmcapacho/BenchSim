@@ -11,13 +11,15 @@ authors = [
 description = "Testbench simulation runner for Icarus Verilog and GTKWave"
 readme = "README.md"
 requires-python = ">=3.8"
-license = { text = "MIT" }
+license = "MIT"
 dependencies = [
     "PyQt6",
     "PyQt6-QScintilla",
-    "pyqttoast",
     "vcdvcd"
 ]
+
+[tool.setuptools]
+packages = ["benchsim"]
 
 [project.scripts]
 benchsim = "benchsim.main:main"

@@ -1,7 +1,12 @@
 # pylint: disable=no-name-in-module
 from PyQt6.QtWidgets import QMessageBox
-from pyqttoast import Toast, ToastPreset
 from .messages import is_error, is_success, is_warning, is_log
+
+try:
+    from pyqttoast import Toast, ToastPreset
+    HAS_PYQTTOAST = True
+except ImportError:
+    HAS_PYQTTOAST = False
 
 class MessageDispatcher:
     def __init__(self, console_widget, parent_window=None, popup_on=None, toast_on=None):
@@ -51,6 +56,8 @@ class MessageDispatcher:
                 QMessageBox.information(self.parent, "Información", text)
 
     def show_toast(self, title='', message='', duration=3000):
+        if not HAS_PYQTTOAST:
+            return
         toast = Toast(self.parent)
         toast.setDuration(duration)
         if title:
