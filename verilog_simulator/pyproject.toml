@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "benchsim"
+version = "1.1.0"
+authors = [
+  { name = "Luis Miguel Capacho V.", email = "lmcapacho@gmail.com" }
+]
+description = "Testbench simulation runner for Icarus Verilog and GTKWave"
+readme = "README.md"
+requires-python = ">=3.8"
+license = { text = "MIT" }
+dependencies = [
+    "PyQt6",
+    "PyQt6-QScintilla",
+    "pyqttoast",
+    "vcdvcd"
+]
+
+[project.scripts]
+benchsim = "verilog_simulator.main:main"
+verilog-simulator = "verilog_simulator.main:main"

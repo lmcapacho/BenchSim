@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+.venv/
+venv/
+
+# Build artifacts
+build/
+dist/
+*.spec
+*.egg-info/
+
+# Verilog simulation outputs
+*.out
+*.vcd
+*.gtkw
+*.bak
+
+# Local editor/OS files
+.vscode/
+.idea/
+.DS_Store
