@@ -29,21 +29,53 @@ class SimulationManager:
     def _sorted_unique_paths(paths):
         return sorted(set(str(Path(path).resolve()) for path in paths if path))
 
+    def _guess_icestudio_scope(self, base, selected_tb=None):
+        """Return the most likely Icestudio project scope directory."""
+        ice_build = base / self.ICE_BUILD_DIR
+        if not ice_build.is_dir():
+            return base
+
+        # If the selected testbench is inside ice-build, use its parent folder.
+        if selected_tb:
+            tb_path = Path(selected_tb).resolve()
+            try:
+                tb_path.relative_to(ice_build.resolve())
+                return tb_path.parent
+            except ValueError:
+                pass
+
+        project_dirs = [d for d in ice_build.iterdir() if d.is_dir()]
+        if len(project_dirs) == 1:
+            return project_dirs[0]
+
+        # Fallback: if main.v exists directly under ice-build, use ice-build root.
+        if (ice_build / "main.v").is_file():
+            return ice_build
+
+        return base
+
     def discover_project_files(self, folder, mode="auto"):
         """Discover source and testbench files for both Icestudio and generic projects."""
         base = Path(folder).resolve()
-        tb_files = sorted(str(path) for path in base.glob("*_tb.v"))
 
         effective_mode = mode or "auto"
         if effective_mode == "auto":
             effective_mode = "icestudio" if (base / self.ICE_BUILD_DIR).is_dir() else "generic"
 
-        source_candidates = list(base.glob("*.v"))
-
         if effective_mode == "icestudio":
+            # In Icestudio mode, allow testbench files either in project root
+            # or inside per-project folders under ice-build.
+            tb_candidates = list(base.glob("*_tb.v"))
             ice_build = base / self.ICE_BUILD_DIR
             if ice_build.is_dir():
+                tb_candidates.extend(ice_build.rglob("*_tb.v"))
+            tb_files = sorted(str(path.resolve()) for path in tb_candidates)
+            source_candidates = list(base.glob("*.v"))
+            if ice_build.is_dir():
                 source_candidates.extend(ice_build.rglob("*.v"))
+        else:
+            tb_files = sorted(str(path.resolve()) for path in base.glob("*_tb.v"))
+            source_candidates = list(base.glob("*.v"))
 
         source_files = [str(path.resolve()) for path in source_candidates]
 
@@ -204,9 +236,55 @@ class SimulationManager:
             return False, messages
 
         selected_tb = tb_file if tb_file in tb_files else discovery["preferred_tb"]
-        if selected_tb and selected_tb not in source_files:
-            source_files.append(selected_tb)
-            source_files = self._sorted_unique_paths(source_files)
+
+        if discovery["effective_mode"] == "icestudio":
+            base_path = Path(folder).resolve()
+            scope_dir = self._guess_icestudio_scope(base_path, selected_tb=selected_tb)
+            ice_build = base_path / self.ICE_BUILD_DIR
+            project_dirs = [d for d in ice_build.iterdir() if d.is_dir()] if ice_build.is_dir() else []
+            if scope_dir == base_path and len(project_dirs) > 1:
+                messages.append(
+                    create_message(
+                        MessageType.ERROR,
+                        (
+                            "Se detectaron varios subproyectos en ice-build. "
+                            "Abre directamente la carpeta del proyecto, por ejemplo: "
+                            "ice-build/<nombre_proyecto>/"
+                        ),
+                        extras=["popup"],
+                    )
+                )
+                return False, messages
+
+            scope_sources = [
+                str(path.resolve())
+                for path in scope_dir.rglob("*.v")
+                if not path.name.endswith("_tb.v")
+            ]
+            # If scope lookup yields nothing, keep previous discovery fallback.
+            if scope_sources:
+                source_files = self._sorted_unique_paths(scope_sources)
+
+        # Compile only one testbench at a time to avoid conflicts when multiple
+        # *_tb.v files exist in the same folder (common in class/lab workspaces).
+        source_no_tb = [
+            src for src in source_files
+            if not Path(src).name.endswith("_tb.v")
+        ]
+        compile_files = list(source_no_tb)
+        if selected_tb:
+            compile_files.append(selected_tb)
+        compile_files = self._sorted_unique_paths(compile_files)
+
+        if not compile_files:
+            messages.append(
+                create_message(
+                    MessageType.ERROR,
+                    "No hay archivos fuente para compilar en el proyecto seleccionado.",
+                    extras=["popup"],
+                )
+            )
+            return False, messages
 
         output_file = os.path.join(folder, "simulation.out")
         gtkw_config = os.path.join(folder, "simulation.gtkw")
@@ -217,13 +295,15 @@ class SimulationManager:
         if not os.path.isfile(vvp_path):
             vvp_path = vvp_name
 
-        compile_cmd = [iverilog, "-o", output_file, '-DVCD_OUTPUT="simulation"', *source_files]
+        # Keep VCD_OUTPUT as a raw token (no quotes) so testbench macros like
+        # `DUMPSTR(`VCD_OUTPUT)` from Icestudio expand correctly.
+        compile_cmd = [iverilog, "-o", output_file, "-DVCD_OUTPUT=simulation", *compile_files]
         sim_cmd = [vvp_path, output_file]
 
         messages.append(
             create_message(
                 MessageType.LOG,
-                f"<b>Compilando...</b><br/>archivos={len(source_files)} modo={discovery['effective_mode']}<br/>",
+                f"<b>Compilando...</b><br/>archivos={len(compile_files)} modo={discovery['effective_mode']}<br/>",
             )
         )
 
