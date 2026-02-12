@@ -335,14 +335,23 @@ class BenchSimApp(QMainWindow):
         if not self.current_tb_file:
             return
 
-        backup_file = self.current_tb_file + ".bak"
-        if os.path.exists(self.current_tb_file):
-            if os.path.exists(backup_file):
-                os.remove(backup_file)
-            os.rename(self.current_tb_file, backup_file)
+        target_file = self.current_tb_file
+        backup_file = f"{target_file}.bak"
+        temp_file = f"{target_file}.tmp"
 
-        with open(self.current_tb_file, "w", encoding="utf-8") as file:
+        # Keep a backup copy of the last saved version without removing the source file.
+        if os.path.exists(target_file):
+            with open(target_file, "r", encoding="utf-8") as src:
+                original_content = src.read()
+            with open(backup_file, "w", encoding="utf-8") as bak:
+                bak.write(original_content)
+
+        # Atomic save to avoid partial writes or stale content on refresh.
+        with open(temp_file, "w", encoding="utf-8") as file:
             file.write(self.editor.text())
+            file.flush()
+            os.fsync(file.fileno())
+        os.replace(temp_file, target_file)
 
         self.save_button.setEnabled(False)
         self.status_label.setText(tr("status_saved", self.language))
