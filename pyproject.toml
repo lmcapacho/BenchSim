@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "benchsim"
-version = "1.1.0"
+version = "0.1.0rc1"
 authors = [
   { name = "Luis Miguel Capacho V.", email = "lmcapacho@gmail.com" }
 ]
