@@ -226,6 +226,20 @@ class SimulationManager:
         discovery = self.discover_project_files(folder, mode=mode)
         source_files = discovery["source_files"]
         tb_files = discovery["tb_files"]
+        base_path = Path(folder).resolve()
+
+        # Friendly guidance when user opens ice-build root with multiple projects.
+        if not source_files and base_path.name == self.ICE_BUILD_DIR:
+            project_dirs = [d for d in base_path.iterdir() if d.is_dir()]
+            if len(project_dirs) > 1:
+                messages.append(
+                    create_message(
+                        MessageType.ERROR,
+                        tr("msg_multiple_icestudio", lang),
+                        extras=["popup"],
+                    )
+                )
+                return False, messages, None
 
         if not source_files:
             messages.append(
@@ -240,7 +254,6 @@ class SimulationManager:
         selected_tb = tb_file if tb_file in tb_files else discovery["preferred_tb"]
 
         if discovery["effective_mode"] == "icestudio":
-            base_path = Path(folder).resolve()
             scope_dir = self._guess_icestudio_scope(base_path, selected_tb=selected_tb)
             ice_build = base_path / self.ICE_BUILD_DIR
             project_dirs = [d for d in ice_build.iterdir() if d.is_dir()] if ice_build.is_dir() else []
