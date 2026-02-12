@@ -1,0 +1,19 @@
+{
+  "paper": "#FAFAFA",
+  "default": "#1F2933",
+  "margin_bg": "#EEF2F7",
+  "margin_fg": "#4A5568",
+  "caret_line": "#E8EDF3",
+  "caret": "#111111",
+  "fold_bg": "#EEF2F7",
+  "fold_fg": "#DCE3EA",
+  "keyword": "#1F5FBF",
+  "preproc": "#8A5700",
+  "comment": "#2F7D32",
+  "string": "#A64600",
+  "number": "#6B4E00",
+  "system_task": "#7B2CBF",
+  "port_conn": "#00897B",
+  "keyword2": "#005FA3",
+  "user_kw": "#8A5700"
+}

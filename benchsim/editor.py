@@ -1,59 +1,33 @@
 """Provides a Verilog editor widget using QScintilla with syntax highlighting and basic features."""
 
+import json
+from pathlib import Path
+
 # pylint: disable=no-name-in-module
-from PyQt6.QtGui import QColor, QFont
 from PyQt6.QtCore import pyqtSignal
-from PyQt6.Qsci import QsciScintilla, QsciLexerVerilog
+from PyQt6.QtGui import QColor, QFont
+from PyQt6.Qsci import QsciLexerVerilog, QsciScintilla
+
 
 class VerilogEditor(QsciScintilla):
-    """A QScintilla-based code editor configured for Verilog syntax.
+    """A QScintilla-based code editor configured for Verilog syntax."""
 
-    Provides syntax highlighting, auto-indentation, line numbers,
-    and emits a signal when the file content changes.
-    """
     file_changed = pyqtSignal()
 
     def __init__(self, parent=None):
-        """Initialize the Verilog editor with syntax highlighting, 
-        margins, and indentation settings."""
         super().__init__(parent)
 
         self.is_loading = False
+        self.base_dir = Path(__file__).resolve().parent
 
-        lexer = QsciLexerVerilog()
+        self.lexer = QsciLexerVerilog()
+        self.lexer.setFont(QFont("Consolas", 12))
+        self.setLexer(self.lexer)
 
-        lexer.setPaper(QColor("#1E1E1E"))
-        lexer.setFont(QFont("Consolas", 12))
-        lexer.setDefaultColor(QColor("#D4D4D4"))
-
-        lexer.setColor(QColor("#569CD6"), QsciLexerVerilog.Keyword)
-        lexer.setColor(QColor("#D7BA7D"), QsciLexerVerilog.Preprocessor)
-        lexer.setColor(QColor("#6A9955"), QsciLexerVerilog.Comment)
-        lexer.setColor(QColor("#CE9178"), QsciLexerVerilog.String)
-        lexer.setColor(QColor("#B5CEA8"), QsciLexerVerilog.Number)
-        lexer.setColor(QColor("#C586C0"), QsciLexerVerilog.SystemTask)
-        lexer.setColor(QColor("#4EC9B0"), QsciLexerVerilog.PortConnection)
-        lexer.setColor(QColor("#9CDCFE"), QsciLexerVerilog.KeywordSet2)
-        lexer.setColor(QColor("#D7BA7D"), QsciLexerVerilog.UserKeywordSet)
-
-        self.setLexer(lexer)
-
-        color = QColor("#1E1E1E").rgb() & 0xFFFFFF
-        self.SendScintilla(QsciScintilla.SCI_STYLESETBACK, QsciScintilla.STYLE_DEFAULT, color)
-
-        self.setMarginsBackgroundColor(QColor("#2D2D30"))
-        self.setMarginsForegroundColor(QColor("#CCCCCC"))
         self.setMarginWidth(0, "0000")
         self.setMarginLineNumbers(0, True)
-
         self.setBraceMatching(QsciScintilla.BraceMatch.SloppyBraceMatch)
-
         self.setCaretLineVisible(True)
-        self.setCaretLineBackgroundColor(QColor("#2C313C"))
-        self.setCaretForegroundColor(QColor("#FFFFFF"))
-
-        # Folding settings
-        self.setFoldMarginColors(QColor("#1E1E1E"), QColor("#2D2D30"))
         self.setFolding(QsciScintilla.FoldStyle.BoxedTreeFoldStyle)
 
         self.setTabWidth(2)
@@ -64,16 +38,48 @@ class VerilogEditor(QsciScintilla):
         self.setIndentationGuides(True)
         self.setAutoIndent(True)
 
+        self.apply_theme("dark")
         self.textChanged.connect(self.trigger_change)
 
+    def _load_theme_colors(self, theme_name):
+        theme_file = self.base_dir / "themes" / f"editor_{theme_name}.json"
+        fallback_file = self.base_dir / "themes" / "editor_dark.json"
+        selected = theme_file if theme_file.is_file() else fallback_file
+
+        with open(selected, "r", encoding="utf-8") as file:
+            return json.load(file)
+
+    def apply_theme(self, theme_name):
+        """Apply editor palette using external theme files."""
+        colors = self._load_theme_colors(theme_name)
+
+        self.lexer.setPaper(QColor(colors["paper"]))
+        self.lexer.setDefaultColor(QColor(colors["default"]))
+        self.lexer.setColor(QColor(colors["keyword"]), QsciLexerVerilog.Keyword)
+        self.lexer.setColor(QColor(colors["preproc"]), QsciLexerVerilog.Preprocessor)
+        self.lexer.setColor(QColor(colors["comment"]), QsciLexerVerilog.Comment)
+        self.lexer.setColor(QColor(colors["string"]), QsciLexerVerilog.String)
+        self.lexer.setColor(QColor(colors["number"]), QsciLexerVerilog.Number)
+        self.lexer.setColor(QColor(colors["system_task"]), QsciLexerVerilog.SystemTask)
+        self.lexer.setColor(QColor(colors["port_conn"]), QsciLexerVerilog.PortConnection)
+        self.lexer.setColor(QColor(colors["keyword2"]), QsciLexerVerilog.KeywordSet2)
+        self.lexer.setColor(QColor(colors["user_kw"]), QsciLexerVerilog.UserKeywordSet)
+
+        base_color = QColor(colors["paper"]).rgb() & 0xFFFFFF
+        self.SendScintilla(QsciScintilla.SCI_STYLESETBACK, QsciScintilla.STYLE_DEFAULT, base_color)
+        self.setMarginsBackgroundColor(QColor(colors["margin_bg"]))
+        self.setMarginsForegroundColor(QColor(colors["margin_fg"]))
+        self.setCaretLineBackgroundColor(QColor(colors["caret_line"]))
+        self.setCaretForegroundColor(QColor(colors["caret"]))
+        self.setFoldMarginColors(QColor(colors["fold_bg"]), QColor(colors["fold_fg"]))
+
     def set_text_safely(self, text):
-        """Set the editor text without triggering the file_changed signal."""
+        """Set the editor text without triggering file_changed signal."""
         self.is_loading = True
         self.setText(text)
         self.is_loading = False
 
     def trigger_change(self):
-        """Emit the file_changed signal when the text changes, 
-        unless loading programmatically."""
+        """Emit file_changed when content changes from user edits."""
         if not self.is_loading:
             self.file_changed.emit()

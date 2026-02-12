@@ -34,6 +34,7 @@ class ConfigDialog(QDialog):
         self.settings = SettingsManager(APP_NAME, legacy_app_names=LEGACY_APP_NAMES)
         cfg = self.settings.get_config()
         self.language = normalize_lang(cfg.get("language", "en"))
+        self.theme = cfg.get("theme", "dark")
 
         self.setGeometry(200, 200, 560, 300)
         self.setWindowTitle(tr("config_title", self.language))
@@ -44,6 +45,7 @@ class ConfigDialog(QDialog):
         iverilog_layout = QHBoxLayout()
         self.iverilog_entry = QLineEdit()
         self.iverilog_button = QPushButton()
+        self.iverilog_button.setObjectName("browseButton")
         self.iverilog_button.setIcon(QIcon.fromTheme("folder-open"))
         self.iverilog_button.setFixedWidth(30)
         self.iverilog_button.clicked.connect(lambda: self.select_executable("iverilog"))
@@ -56,6 +58,7 @@ class ConfigDialog(QDialog):
         gtkwave_layout = QHBoxLayout()
         self.gtkwave_entry = QLineEdit()
         self.gtkwave_button = QPushButton()
+        self.gtkwave_button.setObjectName("browseButton")
         self.gtkwave_button.setIcon(QIcon.fromTheme("folder-open"))
         self.gtkwave_button.setFixedWidth(30)
         self.gtkwave_button.clicked.connect(lambda: self.select_executable("gtkwave"))
@@ -69,8 +72,18 @@ class ConfigDialog(QDialog):
         for code, label in LANG_OPTIONS.items():
             self.language_combo.addItem(label, code)
         self._set_language_combo(self.language)
+        self.language_combo.currentIndexChanged.connect(self._refresh_theme_labels)
         layout.addWidget(language_label)
         layout.addWidget(self.language_combo)
+
+        theme_label = QLabel(tr("config_theme", self.language))
+        self.theme_combo = QComboBox()
+        self.theme_combo.addItem("", "dark")
+        self.theme_combo.addItem("", "light")
+        self._set_theme_combo(self.theme)
+        self._refresh_theme_labels()
+        layout.addWidget(theme_label)
+        layout.addWidget(self.theme_combo)
 
         self.update_auto_check = QCheckBox(tr("config_update_auto", self.language))
         self.update_auto_check.setChecked(cfg.get("update_auto_check", True))
@@ -98,6 +111,17 @@ class ConfigDialog(QDialog):
                 self.language_combo.setCurrentIndex(idx)
                 return
 
+    def _set_theme_combo(self, theme):
+        for idx in range(self.theme_combo.count()):
+            if self.theme_combo.itemData(idx) == theme:
+                self.theme_combo.setCurrentIndex(idx)
+                return
+
+    def _refresh_theme_labels(self):
+        active_lang = self._active_language()
+        self.theme_combo.setItemText(0, tr("theme_dark", active_lang))
+        self.theme_combo.setItemText(1, tr("theme_light", active_lang))
+
     def _active_language(self):
         return self.language_combo.currentData() or self.language
 
@@ -108,6 +132,7 @@ class ConfigDialog(QDialog):
             self.iverilog_entry.setText(config.get("iverilog_path", ""))
             self.gtkwave_entry.setText(config.get("gtkwave_path", ""))
             self._set_language_combo(normalize_lang(config.get("language", self.language)))
+            self._set_theme_combo(config.get("theme", self.theme))
             self.update_auto_check.setChecked(config.get("update_auto_check", True))
             self.update_include_prerelease.setChecked(config.get("update_include_prerelease", False))
 
@@ -119,6 +144,7 @@ class ConfigDialog(QDialog):
                 "iverilog_path": self.iverilog_entry.text(),
                 "gtkwave_path": self.gtkwave_entry.text(),
                 "language": selected_language,
+                "theme": self.theme_combo.currentData() or "dark",
                 "update_auto_check": self.update_auto_check.isChecked(),
                 "update_include_prerelease": self.update_include_prerelease.isChecked(),
             }

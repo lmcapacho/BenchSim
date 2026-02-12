@@ -1,0 +1,121 @@
+QWidget {
+    background-color: #F4F7FB;
+}
+
+QLabel {
+    font-size: 14px;
+    color: #1F2937;
+}
+
+QPushButton {
+    background-color: #1F7A3F;
+    color: white;
+    font-size: 14px;
+    padding: 8px;
+    border-radius: 3px;
+    border: 1px solid #14532D;
+}
+QPushButton:hover {
+    background-color: #166534;
+}
+QPushButton:disabled {
+    background-color: #CBD5E3;
+    color: #6B7280;
+    border: 1px solid #B6C3D6;
+}
+
+QPushButton#browseButton {
+    background-color: #FFFFFF;
+    color: #1F2937;
+    border: 1px solid #B8C6DC;
+    padding: 4px;
+}
+QPushButton#browseButton:hover {
+    background-color: #E8EFFA;
+    border: 1px solid #9FB0CB;
+}
+
+QTextEdit {
+    border: 1px solid #C7D2E5;
+    border-radius: 3px;
+    background-color: #FFFFFF;
+    color: #1F2937;
+    padding: 5px;
+}
+QTextEdit:focus {
+    border: 1px solid #1769E0;
+}
+
+QLineEdit {
+    padding: 5px;
+    border-radius: 8px;
+    background-color: #FFFFFF;
+    color: #1F2937;
+    border: 1px solid #B8C6DC;
+}
+QLineEdit:focus {
+    border: 1px solid #1769E0;
+}
+
+QComboBox {
+    padding: 5px;
+    border-radius: 8px;
+    background-color: #FFFFFF;
+    color: #1F2937;
+    border: 1px solid #B8C6DC;
+}
+QComboBox:focus {
+    border: 1px solid #1769E0;
+}
+QComboBox::drop-down {
+    border: none;
+    width: 22px;
+    background: transparent;
+}
+QComboBox QAbstractItemView {
+    background-color: #FFFFFF;
+    color: #1F2937;
+    border: 1px solid #B8C6DC;
+    selection-background-color: #D7E5FB;
+    selection-color: #0F172A;
+}
+
+QCheckBox {
+    color: #1F2937;
+    spacing: 8px;
+}
+QCheckBox::indicator {
+    width: 16px;
+    height: 16px;
+    border: 1px solid #94A3B8;
+    border-radius: 3px;
+    background: #FFFFFF;
+}
+QCheckBox::indicator:checked {
+    background-color: #1F7A3F;
+    border: 1px solid #14532D;
+}
+QCheckBox::indicator:unchecked:hover {
+    border: 1px solid #64748B;
+}
+
+QFrame {
+    background-color: #EDF2FA;
+    border-bottom: 1px solid #C7D2E5;
+}
+
+QToolButton {
+    background-color: #FFFFFF;
+    color: #1F2937;
+    border: 1px solid #B8C6DC;
+    border-radius: 4px;
+    padding: 6px;
+}
+QToolButton:hover {
+    background-color: #E8EFFA;
+}
+QToolButton:disabled {
+    background-color: #CBD5E3;
+    color: #6B7280;
+    border: 1px solid #B6C3D6;
+}

@@ -22,6 +22,7 @@ from PyQt6.QtWidgets import (
     QToolButton,
     QVBoxLayout,
     QWidget,
+    QStyle,
 )
 
 from .editor import VerilogEditor
@@ -48,6 +49,14 @@ def get_app_icon(base_dir):
     return QIcon()
 
 
+def get_tool_icon(widget, theme_name, fallback_icon):
+    """Return a visible tool icon with desktop-theme fallback."""
+    icon = QIcon.fromTheme(theme_name)
+    if icon.isNull():
+        icon = widget.style().standardIcon(fallback_icon)
+    return icon
+
+
 class BenchSimApp(QMainWindow):
     """Main application window."""
 
@@ -59,12 +68,11 @@ class BenchSimApp(QMainWindow):
 
         self.simulator = SimulationManager()
         self.settings = SettingsManager(APP_NAME, legacy_app_names=LEGACY_APP_NAMES)
-        self.language = normalize_lang(self.settings.get_config().get("language", "en"))
+        cfg = self.settings.get_config()
+        self.language = normalize_lang(cfg.get("language", "en"))
+        self.theme = cfg.get("theme", "dark")
 
         self.setWindowIcon(get_app_icon(self.base_dir))
-
-        theme_path = self.base_dir / "themes" / "dark.qss"
-        self.setStyleSheet(self.load_stylesheet(theme_path))
 
         status_bar = QStatusBar()
         self.setStatusBar(status_bar)
@@ -94,7 +102,6 @@ class BenchSimApp(QMainWindow):
         layout = QVBoxLayout()
 
         toolbar = QFrame()
-        toolbar.setStyleSheet(self.load_stylesheet(theme_path))
 
         toolbar_layout = QHBoxLayout(toolbar)
         toolbar_layout.setContentsMargins(10, 4, 10, 4)
@@ -113,11 +120,11 @@ class BenchSimApp(QMainWindow):
         self.tb_combo.currentIndexChanged.connect(self.tb_selection_changed)
 
         self.folder_button = QToolButton()
-        self.folder_button.setIcon(QIcon.fromTheme("folder-open"))
+        self.folder_button.setIcon(get_tool_icon(self, "folder-open", QStyle.StandardPixmap.SP_DirOpenIcon))
         self.folder_button.clicked.connect(self.select_folder)
 
         self.reload_button = QToolButton()
-        self.reload_button.setIcon(QIcon.fromTheme("view-refresh"))
+        self.reload_button.setIcon(get_tool_icon(self, "view-refresh", QStyle.StandardPixmap.SP_BrowserReload))
         self.reload_button.clicked.connect(self.reload_verilog_folder)
 
         self.config_button = QToolButton()
@@ -152,6 +159,7 @@ class BenchSimApp(QMainWindow):
         )
 
         self.load_config()
+        self.apply_theme()
         self.apply_language()
         self.editor.file_changed.connect(self.tb_changed)
         QTimer.singleShot(1200, self.maybe_check_updates_on_startup)
@@ -160,6 +168,15 @@ class BenchSimApp(QMainWindow):
     def load_stylesheet(theme_path):
         with open(theme_path, "r", encoding="utf-8") as file:
             return file.read()
+
+    def apply_theme(self):
+        """Apply UI and editor theme from external files."""
+        theme_file = self.base_dir / "themes" / f"{self.theme}.qss"
+        if not theme_file.is_file():
+            theme_file = self.base_dir / "themes" / "dark.qss"
+            self.theme = "dark"
+        self.setStyleSheet(self.load_stylesheet(theme_file))
+        self.editor.apply_theme(self.theme)
 
     def apply_language(self):
         self.setWindowTitle(tr("app_name", self.language))
@@ -321,7 +338,10 @@ class BenchSimApp(QMainWindow):
     def open_config_dialog(self):
         config_dialog = ConfigDialog(self)
         if config_dialog.exec():
-            self.language = normalize_lang(self.settings.get_config().get("language", "en"))
+            cfg = self.settings.get_config()
+            self.language = normalize_lang(cfg.get("language", "en"))
+            self.theme = cfg.get("theme", "dark")
+            self.apply_theme()
             self.apply_language()
 
     def maybe_check_updates_on_startup(self):
@@ -372,6 +392,7 @@ class BenchSimApp(QMainWindow):
         project_mode = config.get("project_mode", "auto") if config else "auto"
         selected_tb = config.get("selected_tb", "") if config else ""
         self.language = normalize_lang(config.get("language", "en")) if config else self.language
+        self.theme = config.get("theme", "dark") if config else self.theme
 
         self.folder_entry.setText(folder_path)
         self._set_mode_value(project_mode)
