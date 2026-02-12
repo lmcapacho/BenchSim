@@ -45,6 +45,9 @@ TRANSLATIONS = {
         "config_select_exec": "Select {program}",
         "config_executables": "Executables",
         "config_all_files": "All Files",
+        "config_update_auto": "Check updates at startup",
+        "config_update_prerelease": "Include pre-releases (RC)",
+        "config_check_updates_now": "Check updates now",
         "popup_error_title": "Error",
         "popup_warning_title": "Warning",
         "popup_info_title": "Information",
@@ -69,6 +72,14 @@ TRANSLATIONS = {
         "msg_gtkw_closing": "<b>Closing GTKWave...</b><br/>",
         "msg_gtkw_closed": "<b>GTKWave closed.</b><br/>",
         "msg_gtkw_close_error": "<pre style='color:#E57373'>Error closing GTKWave: {error}</pre>",
+        "update_check_failed": "Could not check for updates: {error}",
+        "update_not_available": "BenchSim is up to date ({version}).",
+        "update_available_title": "Update available",
+        "update_available_body": (
+            "Current version: {current}\\n"
+            "Latest version: {latest}\\n\\n"
+            "Open release page to download and install?"
+        ),
     },
     "es": {
         "app_name": "BenchSim",
@@ -107,6 +118,9 @@ TRANSLATIONS = {
         "config_select_exec": "Seleccionar {program}",
         "config_executables": "Ejecutables",
         "config_all_files": "Todos los archivos",
+        "config_update_auto": "Buscar actualizaciones al iniciar",
+        "config_update_prerelease": "Incluir pre-releases (RC)",
+        "config_check_updates_now": "Buscar actualizaciones ahora",
         "popup_error_title": "Error",
         "popup_warning_title": "Advertencia",
         "popup_info_title": "Información",
@@ -131,6 +145,14 @@ TRANSLATIONS = {
         "msg_gtkw_closing": "<b>Cerrando GTKWave...</b><br/>",
         "msg_gtkw_closed": "<b>GTKWave cerrado.</b><br/>",
         "msg_gtkw_close_error": "<pre style='color:#E57373'>Error al cerrar GTKWave: {error}</pre>",
+        "update_check_failed": "No se pudo verificar actualizaciones: {error}",
+        "update_not_available": "BenchSim está actualizado ({version}).",
+        "update_available_title": "Actualización disponible",
+        "update_available_body": (
+            "Versión actual: {current}\\n"
+            "Última versión: {latest}\\n\\n"
+            "¿Abrir la página de release para descargar e instalar?"
+        ),
     },
 }
 

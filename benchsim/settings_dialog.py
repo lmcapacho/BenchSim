@@ -1,10 +1,12 @@
-"""Configuration dialog for tool paths and UI language."""
+"""Configuration dialog for tool paths, language, and update settings."""
 import os
+import webbrowser
 
 # pylint: disable=no-name-in-module
 from PyQt6.QtCore import Qt
 from PyQt6.QtGui import QIcon
 from PyQt6.QtWidgets import (
+    QCheckBox,
     QComboBox,
     QDialog,
     QFileDialog,
@@ -18,6 +20,7 @@ from PyQt6.QtWidgets import (
 
 from .i18n import LANG_OPTIONS, normalize_lang, tr
 from .settings_manager import SettingsManager
+from .updater import check_for_updates, get_current_version
 
 APP_NAME = "BenchSim"
 LEGACY_APP_NAMES = ["VerilogSimulator"]
@@ -29,9 +32,10 @@ class ConfigDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.settings = SettingsManager(APP_NAME, legacy_app_names=LEGACY_APP_NAMES)
-        self.language = normalize_lang(self.settings.get_config().get("language", "en"))
+        cfg = self.settings.get_config()
+        self.language = normalize_lang(cfg.get("language", "en"))
 
-        self.setGeometry(200, 200, 560, 230)
+        self.setGeometry(200, 200, 560, 300)
         self.setWindowTitle(tr("config_title", self.language))
 
         layout = QVBoxLayout()
@@ -68,6 +72,18 @@ class ConfigDialog(QDialog):
         layout.addWidget(language_label)
         layout.addWidget(self.language_combo)
 
+        self.update_auto_check = QCheckBox(tr("config_update_auto", self.language))
+        self.update_auto_check.setChecked(cfg.get("update_auto_check", True))
+        layout.addWidget(self.update_auto_check)
+
+        self.update_include_prerelease = QCheckBox(tr("config_update_prerelease", self.language))
+        self.update_include_prerelease.setChecked(cfg.get("update_include_prerelease", False))
+        layout.addWidget(self.update_include_prerelease)
+
+        self.check_updates_button = QPushButton(tr("config_check_updates_now", self.language))
+        self.check_updates_button.clicked.connect(self.check_updates_now)
+        layout.addWidget(self.check_updates_button)
+
         layout.addSpacing(15)
         self.save_button = QPushButton(tr("config_save", self.language))
         self.save_button.clicked.connect(self.save_config)
@@ -82,6 +98,9 @@ class ConfigDialog(QDialog):
                 self.language_combo.setCurrentIndex(idx)
                 return
 
+    def _active_language(self):
+        return self.language_combo.currentData() or self.language
+
     def load_config(self):
         """Load values from config."""
         config = self.settings.get_config()
@@ -89,15 +108,19 @@ class ConfigDialog(QDialog):
             self.iverilog_entry.setText(config.get("iverilog_path", ""))
             self.gtkwave_entry.setText(config.get("gtkwave_path", ""))
             self._set_language_combo(normalize_lang(config.get("language", self.language)))
+            self.update_auto_check.setChecked(config.get("update_auto_check", True))
+            self.update_include_prerelease.setChecked(config.get("update_include_prerelease", False))
 
     def save_config(self):
         """Save current values to config file."""
-        selected_language = self.language_combo.currentData() or "en"
+        selected_language = self._active_language()
         self.settings.update_config(
             {
                 "iverilog_path": self.iverilog_entry.text(),
                 "gtkwave_path": self.gtkwave_entry.text(),
                 "language": selected_language,
+                "update_auto_check": self.update_auto_check.isChecked(),
+                "update_include_prerelease": self.update_include_prerelease.isChecked(),
             }
         )
 
@@ -108,9 +131,46 @@ class ConfigDialog(QDialog):
         )
         self.accept()
 
+    def check_updates_now(self):
+        """Run manual update check and open release page when available."""
+        lang = self._active_language()
+        result = check_for_updates(
+            current_version=get_current_version(),
+            include_prerelease=self.update_include_prerelease.isChecked(),
+        )
+
+        if not result.get("ok"):
+            QMessageBox.warning(
+                self,
+                tr("popup_warning_title", lang),
+                tr("update_check_failed", lang, error=result.get("error", "unknown")),
+            )
+            return
+
+        if not result.get("update_available"):
+            QMessageBox.information(
+                self,
+                tr("popup_info_title", lang),
+                tr("update_not_available", lang, version=result.get("current_version", "?")),
+            )
+            return
+
+        should_open = QMessageBox.question(
+            self,
+            tr("update_available_title", lang),
+            tr(
+                "update_available_body",
+                lang,
+                current=result.get("current_version", "?"),
+                latest=result.get("latest_version", "?"),
+            ),
+        )
+        if should_open == QMessageBox.StandardButton.Yes:
+            webbrowser.open(result.get("release_url", ""))
+
     def select_executable(self, program_name):
         """Open a file dialog to select executable path."""
-        active_lang = self.language_combo.currentData() or self.language
+        active_lang = self._active_language()
         default_dir = os.path.expanduser("~")
         filters = (
             f"{tr('config_executables', active_lang)} (*.exe *.bin *.sh);;"

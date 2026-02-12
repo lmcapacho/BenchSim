@@ -4,6 +4,7 @@ from pathlib import Path
 
 # pylint: disable=no-name-in-module
 from PyQt6.QtGui import QGuiApplication, QIcon, QKeySequence
+from PyQt6.QtCore import QTimer
 from PyQt6.QtWidgets import (
     QApplication,
     QComboBox,
@@ -13,6 +14,7 @@ from PyQt6.QtWidgets import (
     QLabel,
     QLineEdit,
     QMainWindow,
+    QMessageBox,
     QPushButton,
     QSizePolicy,
     QStatusBar,
@@ -28,6 +30,7 @@ from .message_dispatcher import MessageDispatcher
 from .settings_dialog import ConfigDialog
 from .settings_manager import SettingsManager
 from .simulation_manager import SimulationManager
+from .updater import check_for_updates as check_updates_remote, get_current_version
 
 APP_NAME = "BenchSim"
 LEGACY_APP_NAMES = ["VerilogSimulator"]
@@ -151,6 +154,7 @@ class BenchSimApp(QMainWindow):
         self.load_config()
         self.apply_language()
         self.editor.file_changed.connect(self.tb_changed)
+        QTimer.singleShot(1200, self.maybe_check_updates_on_startup)
 
     @staticmethod
     def load_stylesheet(theme_path):
@@ -319,6 +323,48 @@ class BenchSimApp(QMainWindow):
         if config_dialog.exec():
             self.language = normalize_lang(self.settings.get_config().get("language", "en"))
             self.apply_language()
+
+    def maybe_check_updates_on_startup(self):
+        """Check for updates when enabled in settings."""
+        cfg = self.settings.get_config()
+        if not cfg.get("update_auto_check", True):
+            return
+        self.check_for_updates(silent_errors=True)
+
+    def check_for_updates(self, silent_errors=False):
+        """Check GitHub releases and prompt user when an update is available."""
+        cfg = self.settings.get_config()
+        include_prerelease = cfg.get("update_include_prerelease", False)
+        result = check_updates_remote(
+            current_version=get_current_version(),
+            include_prerelease=include_prerelease,
+        )
+
+        if not result.get("ok"):
+            if not silent_errors:
+                QMessageBox.warning(
+                    self,
+                    tr("popup_warning_title", self.language),
+                    tr("update_check_failed", self.language, error=result.get("error", "unknown")),
+                )
+            return
+
+        if not result.get("update_available"):
+            return
+
+        answer = QMessageBox.question(
+            self,
+            tr("update_available_title", self.language),
+            tr(
+                "update_available_body",
+                self.language,
+                current=result.get("current_version", "?"),
+                latest=result.get("latest_version", "?"),
+            ),
+        )
+        if answer == QMessageBox.StandardButton.Yes:
+            import webbrowser  # Local import to avoid startup overhead.
+            webbrowser.open(result.get("release_url", ""))
 
     def load_config(self):
         config = self.settings.get_config()
