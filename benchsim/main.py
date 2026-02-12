@@ -23,6 +23,7 @@ from PyQt6.QtWidgets import (
 )
 
 from .editor import VerilogEditor
+from .i18n import normalize_lang, tr
 from .message_dispatcher import MessageDispatcher
 from .settings_dialog import ConfigDialog
 from .settings_manager import SettingsManager
@@ -41,34 +42,36 @@ class BenchSimApp(QMainWindow):
         self.available_tb_files = []
         self.base_dir = Path(__file__).resolve().parent
 
-        self.setWindowTitle(APP_NAME)
+        self.simulator = SimulationManager()
+        self.settings = SettingsManager(APP_NAME, legacy_app_names=LEGACY_APP_NAMES)
+        self.language = normalize_lang(self.settings.get_config().get("language", "en"))
+
         self.setWindowIcon(QIcon(str(self.base_dir / "sim.ico")))
 
         theme_path = self.base_dir / "themes" / "dark.qss"
         self.setStyleSheet(self.load_stylesheet(theme_path))
 
-        self.simulator = SimulationManager()
-        self.settings = SettingsManager(APP_NAME, legacy_app_names=LEGACY_APP_NAMES)
-
         status_bar = QStatusBar()
         self.setStatusBar(status_bar)
 
-        self.status_label = QLabel("Sin cambios")
+        self.status_label = QLabel("")
         self.status_label.setStyleSheet("font-family: Arial, sans-serif; font-size: 14px;")
         status_bar.addWidget(self.status_label)
 
-        self.save_button = QPushButton(QIcon.fromTheme("document-save"), "Guardar")
+        self.save_button = QPushButton(QIcon.fromTheme("document-save"), "")
         self.save_button.setEnabled(False)
-        self.save_button.setToolTip("Guardar cambios (Ctrl+S)")
         self.save_button.setShortcut(QKeySequence.StandardKey.Save)
         self.save_button.clicked.connect(self.save_tb_file)
 
-        self.sim_button = QPushButton(QIcon.fromTheme("media-playback-start"), "Guardar y Simular")
-        self.sim_button.setToolTip("Guardar y Ejecutar simulacion (Ctrl+R)")
+        self.validate_button = QPushButton(QIcon.fromTheme("dialog-ok-apply"), "")
+        self.validate_button.clicked.connect(self.validate_project)
+
+        self.sim_button = QPushButton(QIcon.fromTheme("media-playback-start"), "")
         self.sim_button.setShortcut(QKeySequence("Ctrl+R"))
         self.sim_button.clicked.connect(self.run_simulation)
 
         status_bar.addPermanentWidget(self.save_button)
+        status_bar.addPermanentWidget(self.validate_button)
         status_bar.addPermanentWidget(self.sim_button)
 
         central_widget = QWidget()
@@ -83,34 +86,27 @@ class BenchSimApp(QMainWindow):
         toolbar_layout.setSpacing(10)
 
         self.folder_entry = QLineEdit()
-        self.folder_entry.setPlaceholderText("Selecciona la carpeta raiz del proyecto...")
         self.folder_entry.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
 
         self.mode_combo = QComboBox()
-        self.mode_combo.addItem("Auto", "auto")
-        self.mode_combo.addItem("Icestudio", "icestudio")
-        self.mode_combo.addItem("Generico", "generic")
-        self.mode_combo.setToolTip("Modo de deteccion de archivos fuente")
+        self.mode_combo.addItem("", "auto")
+        self.mode_combo.addItem("", "icestudio")
+        self.mode_combo.addItem("", "generic")
         self.mode_combo.currentIndexChanged.connect(self.reload_verilog_folder)
 
         self.tb_combo = QComboBox()
-        self.tb_combo.setToolTip("Testbench a editar y simular")
         self.tb_combo.currentIndexChanged.connect(self.tb_selection_changed)
 
         self.folder_button = QToolButton()
         self.folder_button.setIcon(QIcon.fromTheme("folder-open"))
-        self.folder_button.setToolTip("Seleccionar carpeta")
         self.folder_button.clicked.connect(self.select_folder)
 
         self.reload_button = QToolButton()
         self.reload_button.setIcon(QIcon.fromTheme("view-refresh"))
-        self.reload_button.setToolTip("Recargar archivos del proyecto")
         self.reload_button.clicked.connect(self.reload_verilog_folder)
 
         self.config_button = QToolButton()
-        self.config_button.setText("CFG")
         self.config_button.setIcon(QIcon.fromTheme("settings"))
-        self.config_button.setToolTip("Configuracion de simulador")
         self.config_button.clicked.connect(self.open_config_dialog)
 
         toolbar_layout.addWidget(self.folder_entry)
@@ -135,17 +131,41 @@ class BenchSimApp(QMainWindow):
         self.dispatcher = MessageDispatcher(
             console_widget=self.console,
             parent_window=self,
+            language=self.language,
             popup_on={"error": True, "warning": False, "success": False, "log": False},
             toast_on={"error": False, "warning": True, "success": True, "log": False},
         )
 
         self.load_config()
+        self.apply_language()
         self.editor.file_changed.connect(self.tb_changed)
 
     @staticmethod
     def load_stylesheet(theme_path):
         with open(theme_path, "r", encoding="utf-8") as file:
             return file.read()
+
+    def apply_language(self):
+        self.setWindowTitle(tr("app_name", self.language))
+        self.status_label.setText(tr("status_clean", self.language))
+        self.save_button.setText(tr("btn_save", self.language))
+        self.save_button.setToolTip(tr("tooltip_save", self.language))
+        self.validate_button.setText(tr("btn_validate", self.language))
+        self.validate_button.setToolTip(tr("tooltip_validate", self.language))
+        self.sim_button.setText(tr("btn_simulate", self.language))
+        self.sim_button.setToolTip(tr("tooltip_simulate", self.language))
+
+        self.folder_entry.setPlaceholderText(tr("placeholder_folder", self.language))
+        self.mode_combo.setItemText(0, tr("mode_auto", self.language))
+        self.mode_combo.setItemText(1, tr("mode_icestudio", self.language))
+        self.mode_combo.setItemText(2, tr("mode_generic", self.language))
+        self.mode_combo.setToolTip(tr("tooltip_mode", self.language))
+        self.tb_combo.setToolTip(tr("tooltip_tb", self.language))
+        self.folder_button.setToolTip(tr("tooltip_select_folder", self.language))
+        self.reload_button.setToolTip(tr("tooltip_reload", self.language))
+        self.config_button.setText(tr("settings_button", self.language))
+        self.config_button.setToolTip(tr("tooltip_settings", self.language))
+        self.dispatcher.set_language(self.language)
 
     def _set_mode_value(self, mode_value):
         for index in range(self.mode_combo.count()):
@@ -155,6 +175,11 @@ class BenchSimApp(QMainWindow):
 
     def _current_mode(self):
         return self.mode_combo.currentData()
+
+    def _selected_tb_path(self):
+        if self.tb_combo.currentIndex() < 0:
+            return None
+        return self.tb_combo.currentData()
 
     def _select_tb_in_combo(self, tb_path):
         if not tb_path:
@@ -170,7 +195,7 @@ class BenchSimApp(QMainWindow):
         with open(tb_path, "r", encoding="utf-8") as verilog_file:
             self.editor.set_text_safely(verilog_file.read())
         self.current_tb_file = tb_path
-        self.status_label.setText("Cambios guardados")
+        self.status_label.setText(tr("status_saved", self.language))
         self.save_button.setEnabled(False)
 
     def _refresh_project(self, preserve_tb=None):
@@ -196,23 +221,69 @@ class BenchSimApp(QMainWindow):
             self._select_tb_in_combo(selected_tb)
             self._load_tb_file(selected_tb)
 
-        source_count = len(discovery["source_files"])
-        scope_mode = discovery["effective_mode"]
         self.console.append(
-            f"<b>Proyecto cargado</b>: modo={scope_mode}, tb={len(self.available_tb_files)}, fuentes={source_count}"
+            tr(
+                "project_loaded",
+                self.language,
+                mode=discovery["effective_mode"],
+                tb_count=len(self.available_tb_files),
+                source_count=len(discovery["source_files"]),
+            )
+        )
+
+    def validate_project(self):
+        folder_path = self.folder_entry.text().strip()
+        tb_path = self._selected_tb_path()
+        success, messages, plan = self.simulator.build_compile_plan(
+            folder=folder_path,
+            mode=self._current_mode(),
+            tb_file=tb_path,
+            require_tools=True,
+        )
+        for message in messages:
+            self.dispatcher.handle_message(message)
+        if not success:
+            return
+
+        self.console.clear()
+        self.console.append(tr("validation_preview_title", self.language))
+        self.console.append(
+            tr(
+                "validation_preview_meta",
+                self.language,
+                mode=plan["mode"],
+                tb=os.path.basename(plan["selected_tb"]) if plan["selected_tb"] else "N/A",
+                count=len(plan["compile_files"]),
+            )
+        )
+        for file_path in plan["compile_files"]:
+            self.console.append(file_path)
+
+        self.dispatcher.handle_message(
+            {
+                "type": "success",
+                "message": tr(
+                    "validation_success",
+                    self.language,
+                    mode=plan["mode"],
+                    tb=os.path.basename(plan["selected_tb"]) if plan["selected_tb"] else "N/A",
+                    count=len(plan["compile_files"]),
+                ),
+                "extras": ["toast"],
+            }
         )
 
     def run_simulation(self):
         self.console.clear()
         screen = QGuiApplication.primaryScreen()
         if screen is None:
-            self.console.append("No se pudo determinar el tamano de pantalla para GTKWave.")
+            self.console.append(tr("error_no_screen", self.language))
             return
 
         self.save_tb_file()
 
         folder_path = self.folder_entry.text().strip()
-        tb_path = self.tb_combo.currentData() if self.tb_combo.currentIndex() >= 0 else None
+        tb_path = self._selected_tb_path()
         success, messages = self.simulator.run_simulation(
             screen.availableGeometry(),
             folder=folder_path,
@@ -233,13 +304,16 @@ class BenchSimApp(QMainWindow):
 
     def open_config_dialog(self):
         config_dialog = ConfigDialog(self)
-        config_dialog.exec()
+        if config_dialog.exec():
+            self.language = normalize_lang(self.settings.get_config().get("language", "en"))
+            self.apply_language()
 
     def load_config(self):
         config = self.settings.get_config()
         folder_path = config.get("verilog_folder", "") if config else ""
         project_mode = config.get("project_mode", "auto") if config else "auto"
         selected_tb = config.get("selected_tb", "") if config else ""
+        self.language = normalize_lang(config.get("language", "en")) if config else self.language
 
         self.folder_entry.setText(folder_path)
         self._set_mode_value(project_mode)
@@ -249,12 +323,12 @@ class BenchSimApp(QMainWindow):
         self._refresh_project(preserve_tb=self.current_tb_file)
 
     def tb_selection_changed(self):
-        tb_path = self.tb_combo.currentData() if self.tb_combo.currentIndex() >= 0 else None
+        tb_path = self._selected_tb_path()
         if tb_path:
             self._load_tb_file(tb_path)
 
     def tb_changed(self):
-        self.status_label.setText("Cambios sin guardar")
+        self.status_label.setText(tr("status_dirty", self.language))
         self.save_button.setEnabled(True)
 
     def save_tb_file(self):
@@ -271,13 +345,13 @@ class BenchSimApp(QMainWindow):
             file.write(self.editor.text())
 
         self.save_button.setEnabled(False)
-        self.status_label.setText("Cambios guardados")
+        self.status_label.setText(tr("status_saved", self.language))
 
     def select_folder(self):
         default_dir = self.folder_entry.text() or os.path.expanduser("~")
         folder_selected = QFileDialog.getExistingDirectory(
             self,
-            "Selecciona una carpeta",
+            tr("dialog_select_folder", self.language),
             default_dir,
         )
         if not folder_selected:

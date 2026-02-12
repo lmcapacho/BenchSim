@@ -7,6 +7,7 @@ from pathlib import Path
 
 from vcdvcd import VCDVCD
 
+from .i18n import normalize_lang, tr
 from .messages import MessageType, create_message
 from .settings_manager import SettingsManager
 from .simulation_runner import ProcessRunner
@@ -181,10 +182,11 @@ class SimulationManager:
 
         return True
 
-    def run_simulation(self, screen_size, folder=None, mode="auto", tb_file=None):
-        """Run compile/simulate/visualize pipeline."""
+    def build_compile_plan(self, folder=None, mode="auto", tb_file=None, require_tools=False):
+        """Build and validate compile inputs without executing the simulation."""
         messages = []
         config = self.settings.get_config()
+        lang = normalize_lang(config.get("language", "en"))
 
         folder = (folder or config.get("verilog_folder", "")).strip()
         mode = (mode or config.get("project_mode", "auto")).strip() or "auto"
@@ -195,31 +197,31 @@ class SimulationManager:
             messages.append(
                 create_message(
                     MessageType.ERROR,
-                    "La carpeta de proyecto no está definida o no existe.",
+                    tr("msg_folder_invalid", lang),
                     extras=["popup"],
                 )
             )
-            return False, messages
+            return False, messages, None
 
-        if not iverilog or not os.path.isfile(iverilog):
+        if require_tools and (not iverilog or not os.path.isfile(iverilog)):
             messages.append(
                 create_message(
                     MessageType.ERROR,
-                    "La ruta de Icarus Verilog no es válida.",
+                    tr("msg_iverilog_invalid", lang),
                     extras=["popup"],
                 )
             )
-            return False, messages
+            return False, messages, None
 
-        if not gtkwave or not os.path.isfile(gtkwave):
+        if require_tools and (not gtkwave or not os.path.isfile(gtkwave)):
             messages.append(
                 create_message(
                     MessageType.ERROR,
-                    "La ruta de GTKWave no es válida.",
+                    tr("msg_gtkwave_invalid", lang),
                     extras=["popup"],
                 )
             )
-            return False, messages
+            return False, messages, None
 
         discovery = self.discover_project_files(folder, mode=mode)
         source_files = discovery["source_files"]
@@ -229,11 +231,11 @@ class SimulationManager:
             messages.append(
                 create_message(
                     MessageType.ERROR,
-                    "No se encontraron archivos .v para compilar.",
+                    tr("msg_no_sources", lang),
                     extras=["popup"],
                 )
             )
-            return False, messages
+            return False, messages, None
 
         selected_tb = tb_file if tb_file in tb_files else discovery["preferred_tb"]
 
@@ -245,32 +247,22 @@ class SimulationManager:
             if scope_dir == base_path and len(project_dirs) > 1:
                 messages.append(
                     create_message(
-                        MessageType.ERROR,
-                        (
-                            "Se detectaron varios subproyectos en ice-build. "
-                            "Abre directamente la carpeta del proyecto, por ejemplo: "
-                            "ice-build/<nombre_proyecto>/"
-                        ),
-                        extras=["popup"],
-                    )
+                    MessageType.ERROR,
+                    tr("msg_multiple_icestudio", lang),
+                    extras=["popup"],
                 )
-                return False, messages
+            )
+                return False, messages, None
 
             scope_sources = [
                 str(path.resolve())
                 for path in scope_dir.rglob("*.v")
                 if not path.name.endswith("_tb.v")
             ]
-            # If scope lookup yields nothing, keep previous discovery fallback.
             if scope_sources:
                 source_files = self._sorted_unique_paths(scope_sources)
 
-        # Compile only one testbench at a time to avoid conflicts when multiple
-        # *_tb.v files exist in the same folder (common in class/lab workspaces).
-        source_no_tb = [
-            src for src in source_files
-            if not Path(src).name.endswith("_tb.v")
-        ]
+        source_no_tb = [src for src in source_files if not Path(src).name.endswith("_tb.v")]
         compile_files = list(source_no_tb)
         if selected_tb:
             compile_files.append(selected_tb)
@@ -280,11 +272,38 @@ class SimulationManager:
             messages.append(
                 create_message(
                     MessageType.ERROR,
-                    "No hay archivos fuente para compilar en el proyecto seleccionado.",
+                    tr("msg_no_compile_files", lang),
                     extras=["popup"],
                 )
             )
+            return False, messages, None
+
+        plan = {
+            "folder": folder,
+            "mode": discovery["effective_mode"],
+            "selected_tb": selected_tb,
+            "compile_files": compile_files,
+            "iverilog": iverilog,
+            "gtkwave": gtkwave,
+        }
+        return True, messages, plan
+
+    def run_simulation(self, screen_size, folder=None, mode="auto", tb_file=None):
+        """Run compile/simulate/visualize pipeline."""
+        lang = normalize_lang(self.settings.get_config().get("language", "en"))
+        success, messages, plan = self.build_compile_plan(
+            folder=folder,
+            mode=mode,
+            tb_file=tb_file,
+            require_tools=True,
+        )
+        if not success:
             return False, messages
+        folder = plan["folder"]
+        selected_tb = plan["selected_tb"]
+        compile_files = plan["compile_files"]
+        iverilog = plan["iverilog"]
+        gtkwave = plan["gtkwave"]
 
         output_file = os.path.join(folder, "simulation.out")
         gtkw_config = os.path.join(folder, "simulation.gtkw")
@@ -303,7 +322,7 @@ class SimulationManager:
         messages.append(
             create_message(
                 MessageType.LOG,
-                f"<b>Compilando...</b><br/>archivos={len(compile_files)} modo={discovery['effective_mode']}<br/>",
+                tr("msg_compiling", lang, count=len(compile_files), mode=plan["mode"]),
             )
         )
 
@@ -319,7 +338,7 @@ class SimulationManager:
             messages.append(
                 create_message(
                     MessageType.ERROR,
-                    f"<b>Error en la compilación:</b><br/><pre>{compile_result.stderr}</pre>",
+                    tr("msg_compile_error", lang, stderr=compile_result.stderr),
                     extras=["popup"],
                 )
             )
@@ -329,7 +348,7 @@ class SimulationManager:
             str(path.resolve()): path.stat().st_mtime for path in Path(folder).glob("*.vcd")
         }
 
-        messages.append(create_message(MessageType.LOG, "<b>Ejecutando simulación...</b><br/>"))
+        messages.append(create_message(MessageType.LOG, tr("msg_running", lang)))
         sim_result = subprocess.run(
             sim_cmd,
             cwd=folder,
@@ -343,7 +362,7 @@ class SimulationManager:
             messages.append(
                 create_message(
                     MessageType.ERROR,
-                    f"<b>Error en la simulación:</b><br/><pre>{sim_result.stderr}</pre>",
+                    tr("msg_sim_error", lang, stderr=sim_result.stderr),
                     extras=["popup"],
                 )
             )
@@ -354,7 +373,7 @@ class SimulationManager:
             messages.append(
                 create_message(
                     MessageType.ERROR,
-                    "La simulación terminó, pero no se encontró archivo .vcd.",
+                    tr("msg_no_vcd", lang),
                     extras=["popup"],
                 )
             )
@@ -366,7 +385,7 @@ class SimulationManager:
             messages.append(
                 create_message(
                     MessageType.ERROR,
-                    "No se pudo generar configuración de GTKWave.",
+                    tr("msg_gtkw_config_error", lang),
                     extras=["popup"],
                 )
             )
@@ -375,15 +394,15 @@ class SimulationManager:
         gtkwave_cmd = f'"{gtkwave}" "{gtkw_config}"'
 
         if self.gtkwave_thread and self.gtkwave_thread.isRunning():
-            messages.append(create_message(MessageType.SUCCESS, "Simulación actualizada", extras=["toast"]))
+            messages.append(create_message(MessageType.SUCCESS, tr("msg_sim_updated", lang), extras=["toast"]))
             messages.append(
                 create_message(
                     MessageType.LOG,
-                    f"<b>GTKWave ya está en ejecución.</b><br/>VCD: {os.path.basename(vcd_file)}<br/>",
+                    tr("msg_gtkw_running", lang, vcd=os.path.basename(vcd_file)),
                 )
             )
         else:
-            messages.append(create_message(MessageType.LOG, f"<b>Abriendo GTKWave...</b><br/>{gtkwave_cmd}<br/>"))
+            messages.append(create_message(MessageType.LOG, tr("msg_opening_gtkw", lang, cmd=gtkwave_cmd)))
             self.gtkwave_thread = ProcessRunner(gtkwave_cmd, cwd=folder)
             self.gtkwave_thread.start()
 
@@ -392,8 +411,9 @@ class SimulationManager:
     def close_gtkwave(self):
         """Terminate GTKWave process if it is still running."""
         messages = []
+        lang = normalize_lang(self.settings.get_config().get("language", "en"))
         if self.gtkwave_thread and self.gtkwave_thread.isRunning():
-            messages.append(create_message(MessageType.LOG, "<b>Cerrando GTKWave...</b><br/>"))
+            messages.append(create_message(MessageType.LOG, tr("msg_gtkw_closing", lang)))
 
             if sys.platform.startswith("win"):
                 subprocess.run("taskkill /IM gtkwave.exe /F", shell=True, check=False)
@@ -404,12 +424,12 @@ class SimulationManager:
                 try:
                     self.gtkwave_thread.process.kill()
                     self.gtkwave_thread.process.wait(timeout=3)
-                    messages.append(create_message(MessageType.LOG, "<b>GTKWave cerrado.</b><br/>"))
+                    messages.append(create_message(MessageType.LOG, tr("msg_gtkw_closed", lang)))
                 except Exception as exc:  # pylint: disable=broad-exception-caught
                     messages.append(
                         create_message(
                             MessageType.LOG,
-                            f"<pre style='color:#E57373'>Error al cerrar GTKWave: {exc}</pre>",
+                            tr("msg_gtkw_close_error", lang, error=exc),
                         )
                     )
 
