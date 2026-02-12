@@ -15,7 +15,7 @@ class VerilogEditor(QsciScintilla):
 
     def __init__(self, parent=None):
         """Initialize the Verilog editor with syntax highlighting, 
-        margins, and indentation settings."""""
+        margins, and indentation settings."""
         super().__init__(parent)
 
         self.is_loading = False
@@ -50,13 +50,18 @@ class VerilogEditor(QsciScintilla):
 
         self.setCaretLineVisible(True)
         self.setCaretLineBackgroundColor(QColor("#2C313C"))
+        self.setCaretForegroundColor(QColor("#FFFFFF"))
 
         # Folding settings
         self.setFoldMarginColors(QColor("#1E1E1E"), QColor("#2D2D30"))
         self.setFolding(QsciScintilla.FoldStyle.BoxedTreeFoldStyle)
 
         self.setTabWidth(2)
+        self.setIndentationWidth(2)
         self.setIndentationsUseTabs(False)
+        self.setTabIndents(True)
+        self.setBackspaceUnindents(True)
+        self.setIndentationGuides(True)
         self.setAutoIndent(True)
 
         self.textChanged.connect(self.trigger_change)
