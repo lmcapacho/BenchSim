@@ -396,6 +396,9 @@ class BenchSimApp(QMainWindow):
 
 def main():
     app = QApplication([])
+    app.setApplicationName("benchsim")
+    app.setApplicationDisplayName("BenchSim")
+    app.setOrganizationName("BenchSim")
     if hasattr(app, "setDesktopFileName"):
         app.setDesktopFileName("benchsim")
     app.setWindowIcon(get_app_icon(Path(__file__).resolve().parent))
