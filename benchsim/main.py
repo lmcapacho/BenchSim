@@ -33,6 +33,18 @@ APP_NAME = "BenchSim"
 LEGACY_APP_NAMES = ["VerilogSimulator"]
 
 
+def get_app_icon(base_dir):
+    """Return a suitable app icon for current platform."""
+    icon_candidates = [
+        base_dir / "sim.png",  # Better for Linux launchers/window docks.
+        base_dir / "sim.ico",  # Windows executable/window icon.
+    ]
+    for candidate in icon_candidates:
+        if candidate.is_file():
+            return QIcon(str(candidate))
+    return QIcon()
+
+
 class BenchSimApp(QMainWindow):
     """Main application window."""
 
@@ -46,7 +58,7 @@ class BenchSimApp(QMainWindow):
         self.settings = SettingsManager(APP_NAME, legacy_app_names=LEGACY_APP_NAMES)
         self.language = normalize_lang(self.settings.get_config().get("language", "en"))
 
-        self.setWindowIcon(QIcon(str(self.base_dir / "sim.ico")))
+        self.setWindowIcon(get_app_icon(self.base_dir))
 
         theme_path = self.base_dir / "themes" / "dark.qss"
         self.setStyleSheet(self.load_stylesheet(theme_path))
@@ -384,6 +396,9 @@ class BenchSimApp(QMainWindow):
 
 def main():
     app = QApplication([])
+    if hasattr(app, "setDesktopFileName"):
+        app.setDesktopFileName("benchsim")
+    app.setWindowIcon(get_app_icon(Path(__file__).resolve().parent))
     window = BenchSimApp()
     window.showMaximized()
     return app.exec()

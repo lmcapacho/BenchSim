@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=BenchSim
+Comment=Testbench simulation runner for Icarus Verilog + GTKWave
+Exec=benchsim
+Icon=benchsim
+Terminal=false
+Categories=Development;Electronics;
+StartupWMClass=benchsim

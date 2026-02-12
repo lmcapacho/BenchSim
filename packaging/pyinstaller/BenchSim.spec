@@ -10,6 +10,7 @@ a = Analysis(
     binaries=[],
     datas=[
         ('benchsim/sim.ico', 'benchsim'),
+        ('benchsim/sim.png', 'benchsim'),
         ('benchsim/themes/dark.qss', 'benchsim/themes'),
     ],
     hiddenimports=[],
@@ -38,6 +39,7 @@ exe = EXE(
     console=False,
     disable_windowed_traceback=False,
     argv_emulation=False,
+    icon='benchsim/sim.ico',
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
