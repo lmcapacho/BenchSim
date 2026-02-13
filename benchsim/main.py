@@ -88,14 +88,10 @@ class BenchSimApp(QMainWindow):
         self.save_button.setEnabled(False)
         self.save_button.clicked.connect(self.save_tb_file)
 
-        self.validate_button = QPushButton(QIcon.fromTheme("dialog-ok-apply"), "")
-        self.validate_button.clicked.connect(self.validate_project)
-
         self.sim_button = QPushButton(QIcon.fromTheme("media-playback-start"), "")
         self.sim_button.clicked.connect(self.run_simulation)
 
         status_bar.addPermanentWidget(self.save_button)
-        status_bar.addPermanentWidget(self.validate_button)
         status_bar.addPermanentWidget(self.sim_button)
 
         central_widget = QWidget()
@@ -128,6 +124,10 @@ class BenchSimApp(QMainWindow):
         self.reload_button.setIcon(get_tool_icon(self, "view-refresh", QStyle.StandardPixmap.SP_BrowserReload))
         self.reload_button.clicked.connect(self.reload_verilog_folder)
 
+        self.validate_tool_button = QToolButton()
+        self.validate_tool_button.setIcon(QIcon.fromTheme("dialog-ok-apply"))
+        self.validate_tool_button.clicked.connect(self.validate_project)
+
         self.config_button = QToolButton()
         self.config_button.setIcon(QIcon.fromTheme("settings"))
         self.config_button.clicked.connect(self.open_config_dialog)
@@ -137,6 +137,7 @@ class BenchSimApp(QMainWindow):
         toolbar_layout.addWidget(self.tb_combo)
         toolbar_layout.addWidget(self.folder_button)
         toolbar_layout.addWidget(self.reload_button)
+        toolbar_layout.addWidget(self.validate_tool_button)
         toolbar_layout.addWidget(self.config_button)
         layout.addWidget(toolbar)
 
@@ -214,8 +215,6 @@ class BenchSimApp(QMainWindow):
         self.status_label.setText(tr("status_clean", self.language))
         self.save_button.setText(tr("btn_save", self.language))
         self.save_button.setToolTip(tr("tooltip_save", self.language))
-        self.validate_button.setText(tr("btn_validate", self.language))
-        self.validate_button.setToolTip(f"{tr('tooltip_validate', self.language)} (Ctrl+Shift+V)")
         self.sim_button.setText(tr("btn_simulate", self.language))
         self.sim_button.setToolTip(tr("tooltip_simulate", self.language))
 
@@ -227,6 +226,7 @@ class BenchSimApp(QMainWindow):
         self.tb_combo.setToolTip(tr("tooltip_tb", self.language))
         self.folder_button.setToolTip(f"{tr('tooltip_select_folder', self.language)} (Ctrl+O)")
         self.reload_button.setToolTip(f"{tr('tooltip_reload', self.language)} (F5)")
+        self.validate_tool_button.setToolTip(f"{tr('tooltip_validate', self.language)} (Ctrl+Shift+V)")
         self.config_button.setText(tr("settings_button", self.language))
         self.config_button.setToolTip(f"{tr('tooltip_settings', self.language)} (Ctrl+,)")
         self.dispatcher.set_language(self.language)
