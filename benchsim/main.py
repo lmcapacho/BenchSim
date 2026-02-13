@@ -43,8 +43,8 @@ LEGACY_APP_NAMES = ["VerilogSimulator"]
 def get_app_icon(base_dir):
     """Return a suitable app icon for current platform."""
     icon_candidates = [
-        base_dir / "sim.png",  # Better for Linux launchers/window docks.
-        base_dir / "sim.ico",  # Windows executable/window icon.
+        base_dir / "benchsim.png",  # Better for Linux launchers/window docks.
+        base_dir / "benchsim.ico",  # Windows executable/window icon.
     ]
     for candidate in icon_candidates:
         if candidate.is_file():
