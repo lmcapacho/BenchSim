@@ -9,6 +9,7 @@ from PyQt6.QtGui import QGuiApplication, QIcon, QKeySequence, QShortcut
 from PyQt6.QtCore import QTimer, Qt
 from PyQt6.QtWidgets import (
     QApplication,
+    QCheckBox,
     QComboBox,
     QFileDialog,
     QFrame,
@@ -141,6 +142,48 @@ class BenchSimApp(QMainWindow):
         toolbar_layout.addWidget(self.config_button)
         layout.addWidget(toolbar)
 
+        self.search_bar = QFrame()
+        search_layout = QHBoxLayout(self.search_bar)
+        search_layout.setContentsMargins(10, 2, 10, 2)
+        search_layout.setSpacing(8)
+
+        self.find_label = QLabel("")
+        self.find_input = QLineEdit()
+        self.find_input.returnPressed.connect(self.find_next)
+
+        self.replace_label = QLabel("")
+        self.replace_input = QLineEdit()
+        self.replace_input.returnPressed.connect(self.replace_current)
+
+        self.case_checkbox = QCheckBox("")
+        self.whole_word_checkbox = QCheckBox("")
+
+        self.find_prev_button = QPushButton("")
+        self.find_prev_button.clicked.connect(self.find_prev)
+        self.find_next_button = QPushButton("")
+        self.find_next_button.clicked.connect(self.find_next)
+        self.replace_button = QPushButton("")
+        self.replace_button.clicked.connect(self.replace_current)
+        self.replace_all_button = QPushButton("")
+        self.replace_all_button.clicked.connect(self.replace_all)
+        self.close_search_button = QToolButton()
+        self.close_search_button.setIcon(QIcon.fromTheme("window-close"))
+        self.close_search_button.clicked.connect(self.hide_search_bar)
+
+        search_layout.addWidget(self.find_label)
+        search_layout.addWidget(self.find_input, 2)
+        search_layout.addWidget(self.replace_label)
+        search_layout.addWidget(self.replace_input, 2)
+        search_layout.addWidget(self.case_checkbox)
+        search_layout.addWidget(self.whole_word_checkbox)
+        search_layout.addWidget(self.find_prev_button)
+        search_layout.addWidget(self.find_next_button)
+        search_layout.addWidget(self.replace_button)
+        search_layout.addWidget(self.replace_all_button)
+        search_layout.addWidget(self.close_search_button)
+        layout.addWidget(self.search_bar)
+        self.search_bar.hide()
+
         layout.addSpacing(15)
 
         self.editor = VerilogEditor(self)
@@ -201,6 +244,26 @@ class BenchSimApp(QMainWindow):
         self.shortcut_settings.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
         self.shortcut_settings.activated.connect(self.open_config_dialog)
 
+        self.shortcut_find = QShortcut(QKeySequence.StandardKey.Find, self)
+        self.shortcut_find.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
+        self.shortcut_find.activated.connect(self.show_find_bar)
+
+        self.shortcut_replace = QShortcut(QKeySequence.StandardKey.Replace, self)
+        self.shortcut_replace.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
+        self.shortcut_replace.activated.connect(self.show_replace_bar)
+
+        self.shortcut_find_next = QShortcut(QKeySequence("F3"), self)
+        self.shortcut_find_next.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
+        self.shortcut_find_next.activated.connect(self.find_next)
+
+        self.shortcut_find_prev = QShortcut(QKeySequence("Shift+F3"), self)
+        self.shortcut_find_prev.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
+        self.shortcut_find_prev.activated.connect(self.find_prev)
+
+        self.shortcut_hide_search = QShortcut(QKeySequence("Escape"), self)
+        self.shortcut_hide_search.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
+        self.shortcut_hide_search.activated.connect(self.hide_search_bar)
+
     def apply_theme(self):
         """Apply UI and editor theme from external files."""
         theme_file = self.base_dir / "themes" / f"{self.theme}.qss"
@@ -229,7 +292,113 @@ class BenchSimApp(QMainWindow):
         self.validate_tool_button.setToolTip(f"{tr('tooltip_validate', self.language)} (Ctrl+Shift+V)")
         self.config_button.setText(tr("settings_button", self.language))
         self.config_button.setToolTip(f"{tr('tooltip_settings', self.language)} (Ctrl+,)")
+
+        self.find_label.setText(tr("editor_find_label", self.language))
+        self.replace_label.setText(tr("editor_replace_label", self.language))
+        self.find_input.setPlaceholderText(tr("editor_find_placeholder", self.language))
+        self.replace_input.setPlaceholderText(tr("editor_replace_placeholder", self.language))
+        self.case_checkbox.setText(tr("editor_case_sensitive", self.language))
+        self.whole_word_checkbox.setText(tr("editor_whole_word", self.language))
+        self.find_prev_button.setText(tr("editor_find_prev", self.language))
+        self.find_next_button.setText(tr("editor_find_next", self.language))
+        self.replace_button.setText(tr("editor_replace", self.language))
+        self.replace_all_button.setText(tr("editor_replace_all", self.language))
+        self.close_search_button.setToolTip(tr("editor_close_search", self.language))
         self.dispatcher.set_language(self.language)
+
+    def show_find_bar(self):
+        self.search_bar.show()
+        self.replace_input.hide()
+        self.replace_label.hide()
+        self.replace_button.hide()
+        self.replace_all_button.hide()
+        if self.editor.hasSelectedText():
+            selected = self.editor.selectedText().replace("\n", "")
+            if selected:
+                self.find_input.setText(selected)
+        self.find_input.setFocus()
+        self.find_input.selectAll()
+
+    def show_replace_bar(self):
+        self.search_bar.show()
+        self.replace_input.show()
+        self.replace_label.show()
+        self.replace_button.show()
+        self.replace_all_button.show()
+        if self.editor.hasSelectedText():
+            selected = self.editor.selectedText().replace("\n", "")
+            if selected:
+                self.find_input.setText(selected)
+        self.find_input.setFocus()
+        self.find_input.selectAll()
+
+    def hide_search_bar(self):
+        if self.search_bar.isVisible():
+            self.search_bar.hide()
+            self.editor.setFocus()
+
+    def _find(self, forward=True):
+        query = self.find_input.text()
+        if not query:
+            self.status_label.setText(tr("editor_find_empty", self.language))
+            return False
+
+        found = self.editor.find_text(
+            query,
+            forward=forward,
+            case_sensitive=self.case_checkbox.isChecked(),
+            whole_word=self.whole_word_checkbox.isChecked(),
+            wrap=True,
+        )
+        if not found:
+            self.status_label.setText(tr("editor_not_found", self.language, query=query))
+        return found
+
+    def find_next(self):
+        self.show_find_bar()
+        self._find(forward=True)
+
+    def find_prev(self):
+        self.show_find_bar()
+        self._find(forward=False)
+
+    def replace_current(self):
+        self.show_replace_bar()
+        query = self.find_input.text()
+        if not query:
+            self.status_label.setText(tr("editor_find_empty", self.language))
+            return
+
+        selected = self.editor.selectedText()
+        case_sensitive = self.case_checkbox.isChecked()
+        matches = selected == query if case_sensitive else selected.lower() == query.lower()
+        if not matches:
+            if not self._find(forward=True):
+                return
+
+        replaced = self.editor.replace_current(self.replace_input.text())
+        if not replaced:
+            self.status_label.setText(tr("editor_replace_none", self.language))
+            return
+        self.status_label.setText(tr("editor_replace_done", self.language))
+        self.save_button.setEnabled(True)
+        self.find_next()
+
+    def replace_all(self):
+        self.show_replace_bar()
+        query = self.find_input.text()
+        if not query:
+            self.status_label.setText(tr("editor_find_empty", self.language))
+            return
+        count = self.editor.replace_all(
+            query,
+            self.replace_input.text(),
+            case_sensitive=self.case_checkbox.isChecked(),
+            whole_word=self.whole_word_checkbox.isChecked(),
+        )
+        self.status_label.setText(tr("editor_replace_all_done", self.language, count=count))
+        if count > 0:
+            self.save_button.setEnabled(True)
 
     def _set_mode_value(self, mode_value):
         for index in range(self.mode_combo.count()):

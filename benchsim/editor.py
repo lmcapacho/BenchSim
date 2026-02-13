@@ -83,3 +83,52 @@ class VerilogEditor(QsciScintilla):
         """Emit file_changed when content changes from user edits."""
         if not self.is_loading:
             self.file_changed.emit()
+
+    def find_text(self, query, *, forward=True, case_sensitive=False, whole_word=False, wrap=True):
+        """Find text from current caret position."""
+        if not query:
+            return False
+        return self.findFirst(
+            query,
+            False,  # regular expression
+            case_sensitive,
+            whole_word,
+            wrap,
+            forward,
+            -1,
+            -1,
+            True,
+        )
+
+    def replace_current(self, replacement):
+        """Replace currently selected match."""
+        if not self.hasSelectedText():
+            return False
+        self.replace(replacement)
+        return True
+
+    def replace_all(self, query, replacement, *, case_sensitive=False, whole_word=False):
+        """Replace all matches in document and return count."""
+        if not query:
+            return 0
+
+        self.beginUndoAction()
+        try:
+            count = 0
+            self.setCursorPosition(0, 0)
+            while self.findFirst(
+                query,
+                False,
+                case_sensitive,
+                whole_word,
+                False,
+                True,
+                -1,
+                -1,
+                True,
+            ):
+                self.replace(replacement)
+                count += 1
+            return count
+        finally:
+            self.endUndoAction()
