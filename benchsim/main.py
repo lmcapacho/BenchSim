@@ -117,6 +117,10 @@ class BenchSimApp(QMainWindow):
         self.tb_combo = QComboBox()
         self.tb_combo.currentIndexChanged.connect(self.tb_selection_changed)
 
+        self.recent_combo = QComboBox()
+        self.recent_combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToContents)
+        self.recent_combo.currentIndexChanged.connect(self.open_recent_project)
+
         self.folder_button = QToolButton()
         self.folder_button.setIcon(get_tool_icon(self, "folder-open", QStyle.StandardPixmap.SP_DirOpenIcon))
         self.folder_button.clicked.connect(self.select_folder)
@@ -134,6 +138,7 @@ class BenchSimApp(QMainWindow):
         self.config_button.clicked.connect(self.open_config_dialog)
 
         toolbar_layout.addWidget(self.folder_entry)
+        toolbar_layout.addWidget(self.recent_combo)
         toolbar_layout.addWidget(self.mode_combo)
         toolbar_layout.addWidget(self.tb_combo)
         toolbar_layout.addWidget(self.folder_button)
@@ -207,6 +212,7 @@ class BenchSimApp(QMainWindow):
         )
 
         self.load_config()
+        self.refresh_recent_projects()
         self.apply_theme()
         self.apply_language()
         self.setup_shortcuts()
@@ -291,6 +297,7 @@ class BenchSimApp(QMainWindow):
         self.mode_combo.setItemText(2, tr("mode_generic", self.language))
         self.mode_combo.setToolTip(tr("tooltip_mode", self.language))
         self.tb_combo.setToolTip(tr("tooltip_tb", self.language))
+        self.recent_combo.setToolTip(tr("tooltip_recent_projects", self.language))
         self.folder_button.setToolTip(f"{tr('tooltip_select_folder', self.language)} (Ctrl+O)")
         self.reload_button.setToolTip(f"{tr('tooltip_reload', self.language)} (F5)")
         self.validate_tool_button.setToolTip(f"{tr('tooltip_validate', self.language)} (Ctrl+Shift+V)")
@@ -308,6 +315,7 @@ class BenchSimApp(QMainWindow):
         self.replace_button.setText(tr("editor_replace", self.language))
         self.replace_all_button.setText(tr("editor_replace_all", self.language))
         self.close_search_button.setToolTip(tr("editor_close_search", self.language))
+        self.refresh_recent_projects()
         self.dispatcher.set_language(self.language)
 
     def show_find_bar(self):
@@ -567,6 +575,42 @@ class BenchSimApp(QMainWindow):
             )
         )
 
+    def refresh_recent_projects(self):
+        self.settings.prune_missing_paths("recent_projects")
+        recent_items = self.settings.get_list("recent_projects")
+        self.recent_combo.blockSignals(True)
+        self.recent_combo.clear()
+        self.recent_combo.addItem(tr("recent_projects_placeholder", self.language), "")
+        for path in recent_items:
+            self.recent_combo.addItem(os.path.basename(path) or path, path)
+        self.recent_combo.setCurrentIndex(0)
+        self.recent_combo.blockSignals(False)
+
+    def add_recent_project(self, folder_path):
+        if not folder_path:
+            return
+        self.settings.push_recent("recent_projects", folder_path, limit=12, normalize=True)
+        self.refresh_recent_projects()
+
+    def open_recent_project(self, index):
+        if index <= 0:
+            return
+        folder_path = self.recent_combo.itemData(index)
+        if not folder_path or not os.path.isdir(folder_path):
+            self.refresh_recent_projects()
+            return
+
+        self.folder_entry.setText(folder_path)
+        self._refresh_project()
+        self.settings.update_config(
+            {
+                "verilog_folder": folder_path,
+                "project_mode": self._current_mode(),
+                "selected_tb": self.current_tb_file or "",
+            }
+        )
+        self.add_recent_project(folder_path)
+
     def validate_project(self):
         folder_path = self.folder_entry.text().strip()
         self._reset_problem_index()
@@ -640,6 +684,7 @@ class BenchSimApp(QMainWindow):
                     "selected_tb": tb_path or "",
                 }
             )
+            self.add_recent_project(folder_path)
 
     def open_config_dialog(self):
         config_dialog = ConfigDialog(self)
@@ -703,6 +748,8 @@ class BenchSimApp(QMainWindow):
         self.folder_entry.setText(folder_path)
         self._set_mode_value(project_mode)
         self._refresh_project(preserve_tb=selected_tb)
+        if folder_path and os.path.isdir(folder_path):
+            self.add_recent_project(folder_path)
 
     def reload_verilog_folder(self):
         self._refresh_project(preserve_tb=self.current_tb_file)
@@ -760,6 +807,7 @@ class BenchSimApp(QMainWindow):
                 "selected_tb": self.current_tb_file or "",
             }
         )
+        self.add_recent_project(folder_selected)
 
     def closeEvent(self, event):
         """Close GTKWave process when the main window closes."""
