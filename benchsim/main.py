@@ -3,8 +3,8 @@ import os
 from pathlib import Path
 
 # pylint: disable=no-name-in-module
-from PyQt6.QtGui import QGuiApplication, QIcon, QKeySequence
-from PyQt6.QtCore import QTimer
+from PyQt6.QtGui import QGuiApplication, QIcon, QKeySequence, QShortcut
+from PyQt6.QtCore import QTimer, Qt
 from PyQt6.QtWidgets import (
     QApplication,
     QComboBox,
@@ -83,14 +83,12 @@ class BenchSimApp(QMainWindow):
 
         self.save_button = QPushButton(QIcon.fromTheme("document-save"), "")
         self.save_button.setEnabled(False)
-        self.save_button.setShortcut(QKeySequence.StandardKey.Save)
         self.save_button.clicked.connect(self.save_tb_file)
 
         self.validate_button = QPushButton(QIcon.fromTheme("dialog-ok-apply"), "")
         self.validate_button.clicked.connect(self.validate_project)
 
         self.sim_button = QPushButton(QIcon.fromTheme("media-playback-start"), "")
-        self.sim_button.setShortcut(QKeySequence("Ctrl+R"))
         self.sim_button.clicked.connect(self.run_simulation)
 
         status_bar.addPermanentWidget(self.save_button)
@@ -161,6 +159,7 @@ class BenchSimApp(QMainWindow):
         self.load_config()
         self.apply_theme()
         self.apply_language()
+        self.setup_shortcuts()
         self.editor.file_changed.connect(self.tb_changed)
         QTimer.singleShot(1200, self.maybe_check_updates_on_startup)
 
@@ -168,6 +167,32 @@ class BenchSimApp(QMainWindow):
     def load_stylesheet(theme_path):
         with open(theme_path, "r", encoding="utf-8") as file:
             return file.read()
+
+    def setup_shortcuts(self):
+        """Register window shortcuts that also work while editor has focus."""
+        self.shortcut_save = QShortcut(QKeySequence.StandardKey.Save, self)
+        self.shortcut_save.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
+        self.shortcut_save.activated.connect(self.save_tb_file)
+
+        self.shortcut_sim = QShortcut(QKeySequence("Ctrl+R"), self)
+        self.shortcut_sim.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
+        self.shortcut_sim.activated.connect(self.run_simulation)
+
+        self.shortcut_validate = QShortcut(QKeySequence("Ctrl+Shift+V"), self)
+        self.shortcut_validate.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
+        self.shortcut_validate.activated.connect(self.validate_project)
+
+        self.shortcut_open = QShortcut(QKeySequence.StandardKey.Open, self)
+        self.shortcut_open.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
+        self.shortcut_open.activated.connect(self.select_folder)
+
+        self.shortcut_reload = QShortcut(QKeySequence("F5"), self)
+        self.shortcut_reload.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
+        self.shortcut_reload.activated.connect(self.reload_verilog_folder)
+
+        self.shortcut_settings = QShortcut(QKeySequence("Ctrl+,"), self)
+        self.shortcut_settings.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
+        self.shortcut_settings.activated.connect(self.open_config_dialog)
 
     def apply_theme(self):
         """Apply UI and editor theme from external files."""
@@ -184,7 +209,7 @@ class BenchSimApp(QMainWindow):
         self.save_button.setText(tr("btn_save", self.language))
         self.save_button.setToolTip(tr("tooltip_save", self.language))
         self.validate_button.setText(tr("btn_validate", self.language))
-        self.validate_button.setToolTip(tr("tooltip_validate", self.language))
+        self.validate_button.setToolTip(f"{tr('tooltip_validate', self.language)} (Ctrl+Shift+V)")
         self.sim_button.setText(tr("btn_simulate", self.language))
         self.sim_button.setToolTip(tr("tooltip_simulate", self.language))
 
@@ -194,10 +219,10 @@ class BenchSimApp(QMainWindow):
         self.mode_combo.setItemText(2, tr("mode_generic", self.language))
         self.mode_combo.setToolTip(tr("tooltip_mode", self.language))
         self.tb_combo.setToolTip(tr("tooltip_tb", self.language))
-        self.folder_button.setToolTip(tr("tooltip_select_folder", self.language))
-        self.reload_button.setToolTip(tr("tooltip_reload", self.language))
+        self.folder_button.setToolTip(f"{tr('tooltip_select_folder', self.language)} (Ctrl+O)")
+        self.reload_button.setToolTip(f"{tr('tooltip_reload', self.language)} (F5)")
         self.config_button.setText(tr("settings_button", self.language))
-        self.config_button.setToolTip(tr("tooltip_settings", self.language))
+        self.config_button.setToolTip(f"{tr('tooltip_settings', self.language)} (Ctrl+,)")
         self.dispatcher.set_language(self.language)
 
     def _set_mode_value(self, mode_value):
