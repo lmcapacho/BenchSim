@@ -264,6 +264,10 @@ class BenchSimApp(QMainWindow):
         self.shortcut_hide_search.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
         self.shortcut_hide_search.activated.connect(self.hide_search_bar)
 
+        self.shortcut_autocomplete = QShortcut(QKeySequence("Ctrl+Space"), self)
+        self.shortcut_autocomplete.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
+        self.shortcut_autocomplete.activated.connect(self.editor.trigger_autocomplete)
+
     def apply_theme(self):
         """Apply UI and editor theme from external files."""
         theme_file = self.base_dir / "themes" / f"{self.theme}.qss"
