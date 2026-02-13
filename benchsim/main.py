@@ -1,5 +1,7 @@
 """Main Qt application for Verilog simulation workflow."""
+import html
 import os
+import re
 from pathlib import Path
 
 # pylint: disable=no-name-in-module
@@ -18,7 +20,7 @@ from PyQt6.QtWidgets import (
     QPushButton,
     QSizePolicy,
     QStatusBar,
-    QTextEdit,
+    QTextBrowser,
     QToolButton,
     QVBoxLayout,
     QWidget,
@@ -64,6 +66,7 @@ class BenchSimApp(QMainWindow):
         super().__init__()
         self.current_tb_file = None
         self.available_tb_files = []
+        self.problem_index = {}
         self.base_dir = Path(__file__).resolve().parent
 
         self.simulator = SimulationManager()
@@ -142,8 +145,11 @@ class BenchSimApp(QMainWindow):
         self.editor = VerilogEditor(self)
         layout.addWidget(self.editor, 4)
 
-        self.console = QTextEdit()
+        self.console = QTextBrowser()
         self.console.setReadOnly(True)
+        self.console.setOpenLinks(False)
+        self.console.setOpenExternalLinks(False)
+        self.console.anchorClicked.connect(self._handle_console_link)
         layout.addWidget(self.console, 1)
 
         central_widget.setLayout(layout)
@@ -256,7 +262,106 @@ class BenchSimApp(QMainWindow):
         self.status_label.setText(tr("status_saved", self.language))
         self.save_button.setEnabled(False)
 
+    def _reset_problem_index(self):
+        self.problem_index = {}
+
+    def _parse_problems_from_stderr(self, stderr_text, folder_path):
+        if not stderr_text:
+            return []
+
+        problems = []
+        pattern = re.compile(r"^(?P<file>[^:\n]+):(?P<line>\d+)(?::(?P<col>\d+))?:\s*(?P<msg>.+)$")
+        for raw_line in stderr_text.splitlines():
+            line = raw_line.strip()
+            match = pattern.match(line)
+            if not match:
+                continue
+
+            file_token = match.group("file").strip().strip("\"'`")
+            line_number = int(match.group("line"))
+            col_value = match.group("col")
+            column_number = int(col_value) if col_value else 1
+            message = match.group("msg").strip()
+
+            file_path = Path(file_token)
+            if not file_path.is_absolute():
+                file_path = Path(folder_path) / file_path
+
+            problems.append(
+                {
+                    "file": str(file_path.resolve()),
+                    "line": line_number,
+                    "col": column_number,
+                    "message": message,
+                }
+            )
+        return problems
+
+    def _append_problems_to_console(self, messages, folder_path):
+        all_problems = []
+        for message in messages:
+            data = message.get("data", {})
+            stderr_text = data.get("stderr", "")
+            if not stderr_text:
+                continue
+            all_problems.extend(self._parse_problems_from_stderr(stderr_text, folder_path))
+
+        if not all_problems:
+            return
+
+        self.console.append(
+            f"<b>{tr('problems_count', self.language, count=len(all_problems))}</b>"
+        )
+        for index, problem in enumerate(all_problems, start=1):
+            token = f"p{index}"
+            self.problem_index[token] = problem
+            location = (
+                f"{html.escape(os.path.basename(problem['file']))}:"
+                f"{problem['line']}:{problem['col']}"
+            )
+            message = html.escape(problem["message"])
+            self.console.append(f'<a href="problem://{token}">{location}</a>  {message}')
+
+    def _handle_console_link(self, url):
+        raw = url.toString()
+        if not raw.startswith("problem://"):
+            return
+        token = raw.replace("problem://", "", 1)
+        problem = self.problem_index.get(token)
+        if not problem:
+            return
+
+        self._jump_to_problem(problem)
+
+    def _jump_to_problem(self, problem):
+        if not isinstance(problem, dict):
+            return
+
+        file_path = problem["file"]
+        line = max(problem["line"] - 1, 0)
+        col = max(problem["col"] - 1, 0)
+
+        # Keep editing flow safe: jump directly only on current or selectable TB files.
+        if file_path == self.current_tb_file:
+            self.editor.setCursorPosition(line, col)
+            self.editor.ensureLineVisible(line)
+            self.editor.setFocus()
+            return
+
+        if file_path in self.available_tb_files:
+            self._load_tb_file(file_path)
+            self._select_tb_in_combo(file_path)
+            self.editor.setCursorPosition(line, col)
+            self.editor.ensureLineVisible(line)
+            self.editor.setFocus()
+            return
+
+        self.console.append(
+            tr("problems_jump_unavailable", self.language, file=os.path.basename(file_path))
+        )
+
     def _refresh_project(self, preserve_tb=None):
+        self._reset_problem_index()
         folder_path = self.folder_entry.text().strip()
         if not folder_path or not os.path.isdir(folder_path):
             self.available_tb_files = []
@@ -291,6 +396,7 @@ class BenchSimApp(QMainWindow):
 
     def validate_project(self):
         folder_path = self.folder_entry.text().strip()
+        self._reset_problem_index()
         tb_path = self._selected_tb_path()
         success, messages, plan = self.simulator.build_compile_plan(
             folder=folder_path,
@@ -333,6 +439,7 @@ class BenchSimApp(QMainWindow):
 
     def run_simulation(self):
         self.console.clear()
+        self._reset_problem_index()
         screen = QGuiApplication.primaryScreen()
         if screen is None:
             self.console.append(tr("error_no_screen", self.language))
@@ -350,6 +457,7 @@ class BenchSimApp(QMainWindow):
         )
         for message in messages:
             self.dispatcher.handle_message(message)
+        self._append_problems_to_console(messages, folder_path)
 
         if success:
             self.settings.update_config(

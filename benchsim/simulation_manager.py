@@ -372,6 +372,7 @@ class SimulationManager:
                     MessageType.ERROR,
                     tr("msg_compile_error", lang, stderr=compile_result.stderr),
                     extras=["popup"],
+                    data={"stage": "compile", "stderr": compile_result.stderr},
                 )
             )
             return False, messages
@@ -396,6 +397,7 @@ class SimulationManager:
                     MessageType.ERROR,
                     tr("msg_sim_error", lang, stderr=sim_result.stderr),
                     extras=["popup"],
+                    data={"stage": "simulate", "stderr": sim_result.stderr},
                 )
             )
             return False, messages

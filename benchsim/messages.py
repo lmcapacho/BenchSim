@@ -10,14 +10,15 @@ class MessageType(Enum):
     LOG = "log"
     WARNING = "warning"
 
-def create_message(message_type, text, extras=None):
+def create_message(message_type, text, extras=None, data=None):
     """Create a standardized message dictionary with optional extra actions."""
     if isinstance(message_type, MessageType):
         message_type = message_type.value
     return {
         "type": message_type,
         "message": text,
-        "extras": extras or []
+        "extras": extras or [],
+        "data": data or {},
     }
 
 def is_error(message):
