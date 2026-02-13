@@ -26,6 +26,25 @@ class SimulationManager:
         self.gtkwave_thread = None
         self.settings = SettingsManager(APP_NAME, legacy_app_names=LEGACY_APP_NAMES)
 
+    def _stop_tracked_gtkwave(self):
+        """Stop only the GTKWave process started by BenchSim, if any."""
+        if not self.gtkwave_thread:
+            return
+        if hasattr(self.gtkwave_thread, "process") and self.gtkwave_thread.process:
+            try:
+                self.gtkwave_thread.process.terminate()
+                self.gtkwave_thread.process.wait(timeout=1.5)
+            except Exception:  # pylint: disable=broad-exception-caught
+                try:
+                    self.gtkwave_thread.process.kill()
+                    self.gtkwave_thread.process.wait(timeout=1)
+                except Exception:  # pylint: disable=broad-exception-caught
+                    pass
+        self.gtkwave_thread.quit()
+        # Never block UI indefinitely while trying to stop GTKWave.
+        self.gtkwave_thread.wait(1200)
+        self.gtkwave_thread = None
+
     @staticmethod
     def _sorted_unique_paths(paths):
         return sorted(set(str(Path(path).resolve()) for path in paths if path))
@@ -404,20 +423,17 @@ class SimulationManager:
             )
             return False, messages
 
-        gtkwave_cmd = f'"{gtkwave}" "{gtkw_config}"'
+        gtkwave_cmd = [gtkwave, gtkw_config]
+        gtkwave_cmd_text = f'"{gtkwave}" "{gtkw_config}"'
 
         if self.gtkwave_thread and self.gtkwave_thread.isRunning():
             messages.append(create_message(MessageType.SUCCESS, tr("msg_sim_updated", lang), extras=["toast"]))
-            messages.append(
-                create_message(
-                    MessageType.LOG,
-                    tr("msg_gtkw_running", lang, vcd=os.path.basename(vcd_file)),
-                )
-            )
-        else:
-            messages.append(create_message(MessageType.LOG, tr("msg_opening_gtkw", lang, cmd=gtkwave_cmd)))
-            self.gtkwave_thread = ProcessRunner(gtkwave_cmd, cwd=folder)
-            self.gtkwave_thread.start()
+            messages.append(create_message(MessageType.LOG, tr("msg_gtkw_restarting", lang)))
+            self._stop_tracked_gtkwave()
+
+        messages.append(create_message(MessageType.LOG, tr("msg_opening_gtkw", lang, cmd=gtkwave_cmd_text)))
+        self.gtkwave_thread = ProcessRunner(gtkwave_cmd, cwd=folder)
+        self.gtkwave_thread.start()
 
         return True, messages
 

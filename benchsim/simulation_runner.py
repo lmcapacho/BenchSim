@@ -26,9 +26,10 @@ class ProcessRunner(QThread):
     def run(self):
         """Start the subprocess, capture its output and errors, and emit signals for each line."""
         self.is_running = True
+        use_shell = isinstance(self.command, str)
         self.process = subprocess.Popen(
             self.command,
-            shell=True,
+            shell=use_shell,
             cwd=self.cwd,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
