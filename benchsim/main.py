@@ -986,6 +986,13 @@ class BenchSimApp(QMainWindow):
 
 
 def main():
+    if sys.platform.startswith("win"):
+        try:
+            import ctypes
+            ctypes.windll.shell32.SetCurrentProcessExplicitAppUserModelID("BenchSim.BenchSim")
+        except Exception:
+            pass
+
     app = QApplication([])
     app.setApplicationName("benchsim")
     app.setApplicationDisplayName("BenchSim")

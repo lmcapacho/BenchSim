@@ -16,11 +16,12 @@ AppUpdatesURL={#MyAppURL}
 DefaultDirName={autopf}\BenchSim
 DefaultGroupName=BenchSim
 DisableProgramGroupPage=yes
-ArchitecturesInstallIn64BitMode=x64
+ArchitecturesAllowed=x64compatible
+ArchitecturesInstallIn64BitMode=x64compatible
 OutputDir=..\..\dist\installer
 OutputBaseFilename=BenchSim-Setup-{#MyAppVersion}
 SetupIconFile=..\..\benchsim\benchsim.ico
-UninstallDisplayIcon={app}\benchsim\benchsim.ico
+UninstallDisplayIcon={app}\{#MyAppExeName}
 Compression=lzma
 SolidCompression=yes
 WizardStyle=modern
@@ -35,8 +36,8 @@ Name: "desktopicon"; Description: "Create a &desktop shortcut"; GroupDescription
 Source: "{#MySourceDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 
 [Icons]
-Name: "{autoprograms}\BenchSim"; Filename: "{app}\{#MyAppExeName}"; IconFilename: "{app}\benchsim\benchsim.ico"
-Name: "{autodesktop}\BenchSim"; Filename: "{app}\{#MyAppExeName}"; IconFilename: "{app}\benchsim\benchsim.ico"; Tasks: desktopicon
+Name: "{autoprograms}\BenchSim"; Filename: "{app}\{#MyAppExeName}"; IconFilename: "{app}\{#MyAppExeName}"
+Name: "{autodesktop}\BenchSim"; Filename: "{app}\{#MyAppExeName}"; IconFilename: "{app}\{#MyAppExeName}"; Tasks: desktopicon
 
 [Run]
 Filename: "{app}\{#MyAppExeName}"; Description: "Launch BenchSim"; Flags: nowait postinstall skipifsilent
