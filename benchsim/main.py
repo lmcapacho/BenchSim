@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 
 # pylint: disable=no-name-in-module
-from PyQt6.QtGui import QColor, QGuiApplication, QIcon, QKeySequence, QPainter, QPixmap, QShortcut
+from PyQt6.QtGui import QColor, QGuiApplication, QIcon, QKeySequence, QPainter, QPen, QPixmap, QShortcut
 from PyQt6.QtCore import QTimer, Qt
 from PyQt6.QtWidgets import (
     QApplication,
