@@ -1,22 +1,27 @@
 # -*- mode: python ; coding: utf-8 -*-
 import os
 
-project_root = os.path.abspath('.')
+# Some PyInstaller environments do not define __file__ in spec context.
+spec_path = globals().get("__file__") or globals().get("SPEC")
+if not spec_path:
+    spec_path = os.path.join(os.getcwd(), "packaging", "pyinstaller", "BenchSim.spec")
+spec_dir = os.path.dirname(os.path.abspath(spec_path))
+project_root = os.path.abspath(os.path.join(spec_dir, "..", ".."))
 
 
 a = Analysis(
-    ['benchsim/main.py'],
+    [os.path.join(project_root, 'benchsim', 'main.py')],
     pathex=[project_root],
     binaries=[],
     datas=[
-        ('benchsim/benchsim.ico', 'benchsim'),
-        ('benchsim/benchsim.png', 'benchsim'),
-        ('benchsim/themes/dark.qss', 'benchsim/themes'),
-        ('benchsim/themes/light.qss', 'benchsim/themes'),
-        ('benchsim/themes/editor_dark.json', 'benchsim/themes'),
-        ('benchsim/themes/editor_light.json', 'benchsim/themes'),
+        (os.path.join(project_root, 'benchsim', 'benchsim.ico'), 'benchsim'),
+        (os.path.join(project_root, 'benchsim', 'benchsim.png'), 'benchsim'),
+        (os.path.join(project_root, 'benchsim', 'themes', 'dark.qss'), 'benchsim/themes'),
+        (os.path.join(project_root, 'benchsim', 'themes', 'light.qss'), 'benchsim/themes'),
+        (os.path.join(project_root, 'benchsim', 'themes', 'editor_dark.json'), 'benchsim/themes'),
+        (os.path.join(project_root, 'benchsim', 'themes', 'editor_light.json'), 'benchsim/themes'),
     ],
-    hiddenimports=[],
+    hiddenimports=["PyQt6.sip", "PyQt6.Qsci"],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
@@ -29,8 +34,6 @@ pyz = PYZ(a.pure)
 exe = EXE(
     pyz,
     a.scripts,
-    a.binaries,
-    a.datas,
     [],
     name='BenchSim',
     debug=False,
@@ -39,11 +42,22 @@ exe = EXE(
     upx=True,
     upx_exclude=[],
     runtime_tmpdir=None,
+    exclude_binaries=True,
     console=False,
     disable_windowed_traceback=False,
     argv_emulation=False,
-    icon='benchsim/benchsim.ico',
+    icon=os.path.join(project_root, 'benchsim', 'benchsim.ico'),
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
+)
+
+coll = COLLECT(
+    exe,
+    a.binaries,
+    a.datas,
+    strip=False,
+    upx=True,
+    upx_exclude=[],
+    name='BenchSim',
 )

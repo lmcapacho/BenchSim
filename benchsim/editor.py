@@ -2,6 +2,7 @@
 
 import json
 import re
+import sys
 from pathlib import Path
 
 # pylint: disable=no-name-in-module
@@ -68,7 +69,10 @@ class VerilogEditor(QsciScintilla):
         super().__init__(parent)
 
         self.is_loading = False
-        self.base_dir = Path(__file__).resolve().parent
+        if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
+            self.base_dir = Path(sys._MEIPASS) / "benchsim"
+        else:
+            self.base_dir = Path(__file__).resolve().parent
 
         self.lexer = QsciLexerVerilog()
         self.lexer.setFont(QFont("Consolas", 12))

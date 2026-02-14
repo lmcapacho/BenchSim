@@ -2,6 +2,7 @@
 import html
 import os
 import re
+import sys
 from pathlib import Path
 
 # pylint: disable=no-name-in-module
@@ -28,16 +29,32 @@ from PyQt6.QtWidgets import (
     QStyle,
 )
 
-from .editor import VerilogEditor
-from .i18n import normalize_lang, tr
-from .message_dispatcher import MessageDispatcher
-from .settings_dialog import ConfigDialog
-from .settings_manager import SettingsManager
-from .simulation_manager import SimulationManager
-from .updater import check_for_updates as check_updates_remote, get_current_version
+try:
+    from .editor import VerilogEditor
+    from .i18n import normalize_lang, tr
+    from .message_dispatcher import MessageDispatcher
+    from .settings_dialog import ConfigDialog
+    from .settings_manager import SettingsManager
+    from .simulation_manager import SimulationManager
+    from .updater import check_for_updates as check_updates_remote, get_current_version
+except ImportError:
+    from benchsim.editor import VerilogEditor
+    from benchsim.i18n import normalize_lang, tr
+    from benchsim.message_dispatcher import MessageDispatcher
+    from benchsim.settings_dialog import ConfigDialog
+    from benchsim.settings_manager import SettingsManager
+    from benchsim.simulation_manager import SimulationManager
+    from benchsim.updater import check_for_updates as check_updates_remote, get_current_version
 
 APP_NAME = "BenchSim"
 LEGACY_APP_NAMES = ["VerilogSimulator"]
+
+
+def get_resource_base_dir():
+    """Return resource base directory for source and frozen builds."""
+    if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
+        return Path(sys._MEIPASS) / "benchsim"
+    return Path(__file__).resolve().parent
 
 
 def get_app_icon(base_dir):
@@ -68,7 +85,7 @@ class BenchSimApp(QMainWindow):
         self.current_tb_file = None
         self.available_tb_files = []
         self.problem_index = {}
-        self.base_dir = Path(__file__).resolve().parent
+        self.base_dir = get_resource_base_dir()
 
         self.simulator = SimulationManager()
         self.settings = SettingsManager(APP_NAME, legacy_app_names=LEGACY_APP_NAMES)
