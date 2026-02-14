@@ -1,10 +1,11 @@
 """Configuration dialog for tool paths, language, and update settings."""
 import os
+import sys
 import webbrowser
 
 # pylint: disable=no-name-in-module
-from PyQt6.QtCore import Qt
-from PyQt6.QtGui import QIcon
+from PyQt6.QtCore import QSize, Qt
+from PyQt6.QtGui import QColor, QIcon, QPainter, QPen, QPixmap
 from PyQt6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -45,9 +46,8 @@ class ConfigDialog(QDialog):
         self.iverilog_entry = QLineEdit()
         self.iverilog_button = QPushButton()
         self.iverilog_button.setObjectName("browseButton")
-        self.iverilog_button.setIcon(
-            QIcon.fromTheme("folder-open", self.style().standardIcon(self.style().StandardPixmap.SP_DirOpenIcon))
-        )
+        self.iverilog_button.setIcon(self._browse_icon())
+        self.iverilog_button.setIconSize(QSize(14, 14))
         self.iverilog_button.setFixedWidth(30)
         self.iverilog_button.clicked.connect(lambda: self.select_executable("iverilog"))
         iverilog_layout.addWidget(self.iverilog_entry)
@@ -60,9 +60,8 @@ class ConfigDialog(QDialog):
         self.gtkwave_entry = QLineEdit()
         self.gtkwave_button = QPushButton()
         self.gtkwave_button.setObjectName("browseButton")
-        self.gtkwave_button.setIcon(
-            QIcon.fromTheme("folder-open", self.style().standardIcon(self.style().StandardPixmap.SP_DirOpenIcon))
-        )
+        self.gtkwave_button.setIcon(self._browse_icon())
+        self.gtkwave_button.setIconSize(QSize(14, 14))
         self.gtkwave_button.setFixedWidth(30)
         self.gtkwave_button.clicked.connect(lambda: self.select_executable("gtkwave"))
         gtkwave_layout.addWidget(self.gtkwave_entry)
@@ -124,6 +123,31 @@ class ConfigDialog(QDialog):
         active_lang = self._active_language()
         self.theme_combo.setItemText(0, tr("theme_dark", active_lang))
         self.theme_combo.setItemText(1, tr("theme_light", active_lang))
+
+    def _browse_icon(self):
+        if sys.platform.startswith("win"):
+            color = QColor("#EAEAEA" if self.theme == "dark" else "#1F2937")
+            return self._build_folder_icon(color)
+        return QIcon.fromTheme("folder-open", self.style().standardIcon(self.style().StandardPixmap.SP_DirOpenIcon))
+
+    @staticmethod
+    def _build_folder_icon(color, size=16):
+        pixmap = QPixmap(size, size)
+        pixmap.fill(Qt.GlobalColor.transparent)
+        painter = QPainter(pixmap)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+        pen = QPen(color)
+        pen.setWidthF(1.6)
+        pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+        pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
+        painter.setPen(pen)
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+        painter.drawRoundedRect(1.8, 5.3, 12.6, 8.2, 1.2, 1.2)
+        painter.drawLine(2.5, 5.3, 6.2, 5.3)
+        painter.drawLine(6.2, 5.3, 8.0, 3.6)
+        painter.drawLine(8.0, 3.6, 13.5, 3.6)
+        painter.end()
+        return QIcon(pixmap)
 
     def _active_language(self):
         return self.language_combo.currentData() or self.language
