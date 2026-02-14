@@ -1,11 +1,10 @@
 """Configuration dialog for tool paths, language, and update settings."""
 import os
-import sys
 import webbrowser
 
 # pylint: disable=no-name-in-module
 from PyQt6.QtCore import QSize, Qt
-from PyQt6.QtGui import QColor, QIcon, QPainter, QPen, QPixmap
+from PyQt6.QtGui import QColor, QIcon, QPainter
 from PyQt6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -125,29 +124,28 @@ class ConfigDialog(QDialog):
         self.theme_combo.setItemText(1, tr("theme_light", active_lang))
 
     def _browse_icon(self):
-        if sys.platform.startswith("win"):
-            color = QColor("#EAEAEA" if self.theme == "dark" else "#1F2937")
-            return self._build_folder_icon(color)
-        return QIcon.fromTheme("folder-open", self.style().standardIcon(self.style().StandardPixmap.SP_DirOpenIcon))
+        icon = QIcon.fromTheme("folder-open")
+        fallback = icon.isNull()
+        if fallback:
+            icon = self.style().standardIcon(self.style().StandardPixmap.SP_DirOpenIcon)
+        if self.theme == "dark" and fallback:
+            icon = self._tint_icon(icon, QColor("#E4E4E4"))
+        return icon
 
     @staticmethod
-    def _build_folder_icon(color, size=16):
-        pixmap = QPixmap(size, size)
-        pixmap.fill(Qt.GlobalColor.transparent)
-        painter = QPainter(pixmap)
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
-        pen = QPen(color)
-        pen.setWidthF(1.6)
-        pen.setCapStyle(Qt.PenCapStyle.RoundCap)
-        pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
-        painter.setPen(pen)
-        painter.setBrush(Qt.BrushStyle.NoBrush)
-        painter.drawRoundedRect(1.8, 5.3, 12.6, 8.2, 1.2, 1.2)
-        painter.drawLine(2.5, 5.3, 6.2, 5.3)
-        painter.drawLine(6.2, 5.3, 8.0, 3.6)
-        painter.drawLine(8.0, 3.6, 13.5, 3.6)
-        painter.end()
-        return QIcon(pixmap)
+    def _tint_icon(icon, color):
+        tinted = QIcon()
+        for size in (14, 16, 20, 24):
+            src = icon.pixmap(size, size)
+            if src.isNull():
+                continue
+            dst = src.copy()
+            painter = QPainter(dst)
+            painter.setCompositionMode(QPainter.CompositionMode.CompositionMode_SourceIn)
+            painter.fillRect(dst.rect(), color)
+            painter.end()
+            tinted.addPixmap(dst)
+        return tinted if not tinted.isNull() else icon
 
     def _active_language(self):
         return self.language_combo.currentData() or self.language

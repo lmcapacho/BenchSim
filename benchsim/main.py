@@ -8,8 +8,8 @@ import sys
 from pathlib import Path
 
 # pylint: disable=no-name-in-module
-from PyQt6.QtGui import QColor, QGuiApplication, QIcon, QKeySequence, QPainter, QPen, QPixmap, QShortcut
-from PyQt6.QtCore import QPointF, QSize, QTimer, Qt
+from PyQt6.QtGui import QColor, QGuiApplication, QIcon, QKeySequence, QPainter, QPixmap, QShortcut
+from PyQt6.QtCore import QTimer, Qt
 from PyQt6.QtWidgets import (
     QApplication,
     QCheckBox,
@@ -305,15 +305,6 @@ class BenchSimApp(QMainWindow):
         """Apply system icons and tweak contrast where needed."""
         tint_color = QColor("#E4E4E4")
         on_windows_dark = sys.platform.startswith("win") and self.theme == "dark"
-        if sys.platform.startswith("win"):
-            icon_color = QColor("#EAEAEA" if self.theme == "dark" else "#1F2937")
-            self.folder_button.setIcon(self._build_folder_icon(icon_color))
-            self.reload_button.setIcon(self._build_reload_icon(icon_color))
-            self.validate_tool_button.setIcon(self._build_check_icon(icon_color))
-            self.config_button.setIcon(self._build_gear_icon(icon_color))
-            for btn in (self.folder_button, self.reload_button, self.validate_tool_button, self.config_button):
-                btn.setIconSize(QSize(16, 16))
-            return
 
         icon, fallback = get_tool_icon(self, "folder-open", QStyle.StandardPixmap.SP_DirOpenIcon)
         if on_windows_dark and fallback:
@@ -362,60 +353,6 @@ class BenchSimApp(QMainWindow):
             painter.rotate(angle)
             painter.drawLine(0, -8, 0, -6)
             painter.restore()
-        painter.end()
-        return QIcon(pixmap)
-
-    @staticmethod
-    def _build_folder_icon(color, size=18):
-        pixmap = QPixmap(size, size)
-        pixmap.fill(Qt.GlobalColor.transparent)
-        painter = QPainter(pixmap)
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
-        pen = QPen(color)
-        pen.setWidthF(1.6)
-        pen.setCapStyle(Qt.PenCapStyle.RoundCap)
-        pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
-        painter.setPen(pen)
-        painter.setBrush(Qt.BrushStyle.NoBrush)
-        painter.drawRoundedRect(2, 6, 14, 9, 1.3, 1.3)
-        painter.drawLine(3, 6, 7, 6)
-        painter.drawLine(7, 6, 9, 4)
-        painter.drawLine(9, 4, 15, 4)
-        painter.end()
-        return QIcon(pixmap)
-
-    @staticmethod
-    def _build_reload_icon(color, size=18):
-        pixmap = QPixmap(size, size)
-        pixmap.fill(Qt.GlobalColor.transparent)
-        painter = QPainter(pixmap)
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
-        pen = QPen(color)
-        pen.setWidthF(1.8)
-        pen.setCapStyle(Qt.PenCapStyle.RoundCap)
-        pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
-        painter.setPen(pen)
-        painter.setBrush(Qt.BrushStyle.NoBrush)
-        painter.drawArc(3, 3, 12, 12, 35 * 16, 280 * 16)
-        painter.drawLine(QPointF(12.0, 3.0), QPointF(15.0, 4.0))
-        painter.drawLine(QPointF(15.0, 4.0), QPointF(13.8, 6.2))
-        painter.end()
-        return QIcon(pixmap)
-
-    @staticmethod
-    def _build_check_icon(color, size=18):
-        pixmap = QPixmap(size, size)
-        pixmap.fill(Qt.GlobalColor.transparent)
-        painter = QPainter(pixmap)
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
-        pen = QPen(color)
-        pen.setWidthF(2.0)
-        pen.setCapStyle(Qt.PenCapStyle.RoundCap)
-        pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
-        painter.setPen(pen)
-        painter.setBrush(Qt.BrushStyle.NoBrush)
-        painter.drawLine(QPointF(3.8, 9.4), QPointF(7.4, 12.9))
-        painter.drawLine(QPointF(7.4, 12.9), QPointF(14.4, 5.8))
         painter.end()
         return QIcon(pixmap)
 
