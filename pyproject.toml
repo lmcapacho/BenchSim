@@ -23,4 +23,3 @@ packages = ["benchsim"]
 
 [project.scripts]
 benchsim = "benchsim.main:main"
-verilog-simulator = "benchsim.main:main"

@@ -13,7 +13,6 @@ from .settings_manager import SettingsManager
 from .simulation_runner import ProcessRunner
 
 APP_NAME = "BenchSim"
-LEGACY_APP_NAMES = ["VerilogSimulator"]
 
 
 class SimulationManager:
@@ -24,7 +23,7 @@ class SimulationManager:
     def __init__(self):
         super().__init__()
         self.gtkwave_thread = None
-        self.settings = SettingsManager(APP_NAME, legacy_app_names=LEGACY_APP_NAMES)
+        self.settings = SettingsManager(APP_NAME)
 
     def _stop_tracked_gtkwave(self):
         """Stop only the GTKWave process started by BenchSim, if any."""

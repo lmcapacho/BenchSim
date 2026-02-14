@@ -23,7 +23,6 @@ from .settings_manager import SettingsManager
 from .updater import check_for_updates, get_current_version
 
 APP_NAME = "BenchSim"
-LEGACY_APP_NAMES = ["VerilogSimulator"]
 
 
 class ConfigDialog(QDialog):
@@ -31,7 +30,7 @@ class ConfigDialog(QDialog):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.settings = SettingsManager(APP_NAME, legacy_app_names=LEGACY_APP_NAMES)
+        self.settings = SettingsManager(APP_NAME)
         cfg = self.settings.get_config()
         self.language = normalize_lang(cfg.get("language", "en"))
         self.theme = cfg.get("theme", "dark")
