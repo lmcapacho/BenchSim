@@ -1,5 +1,6 @@
 """Configuration dialog for tool paths, language, and update settings."""
 import os
+import sys
 import webbrowser
 
 # pylint: disable=no-name-in-module
