@@ -125,10 +125,10 @@ class ConfigDialog(QDialog):
 
     def _browse_icon(self):
         icon = QIcon.fromTheme("folder-open")
-        fallback = icon.isNull()
-        if fallback:
+        if icon.isNull():
             icon = self.style().standardIcon(self.style().StandardPixmap.SP_DirOpenIcon)
-        if self.theme == "dark" and fallback:
+        on_windows_dark = sys.platform.startswith("win") and self.theme == "dark"
+        if on_windows_dark and not icon.isNull():
             icon = self._tint_icon(icon, QColor("#E4E4E4"))
         return icon
 

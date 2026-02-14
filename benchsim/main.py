@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 
 # pylint: disable=no-name-in-module
-from PyQt6.QtGui import QColor, QGuiApplication, QIcon, QKeySequence, QPainter, QPen, QPixmap, QShortcut
+from PyQt6.QtGui import QColor, QGuiApplication, QIcon, QKeySequence, QPainter, QPixmap, QShortcut
 from PyQt6.QtCore import QTimer, Qt
 from PyQt6.QtWidgets import (
     QApplication,
@@ -304,57 +304,28 @@ class BenchSimApp(QMainWindow):
     def _apply_toolbar_icons(self):
         """Apply system icons and tweak contrast where needed."""
         tint_color = QColor("#E4E4E4")
+        # Detect Windows dark mode behavior by active app theme.
         on_windows_dark = sys.platform.startswith("win") and self.theme == "dark"
 
-        icon, fallback = get_tool_icon(self, "folder-open", QStyle.StandardPixmap.SP_DirOpenIcon)
-        if on_windows_dark and fallback:
-            icon = self._tint_icon(icon, tint_color)
-        self.folder_button.setIcon(icon)
-
-        icon, fallback = get_tool_icon(self, "view-refresh", QStyle.StandardPixmap.SP_BrowserReload)
-        if on_windows_dark and fallback:
-            icon = self._tint_icon(icon, tint_color)
-        self.reload_button.setIcon(icon)
-
-        icon, fallback = get_tool_icon(self, "dialog-ok-apply", QStyle.StandardPixmap.SP_DialogYesButton)
-        if on_windows_dark and fallback:
-            icon = self._tint_icon(icon, tint_color)
-        self.validate_tool_button.setIcon(icon)
+        buttons = [
+            (self.folder_button, "folder-open", QStyle.StandardPixmap.SP_DirOpenIcon),
+            (self.reload_button, "view-refresh", QStyle.StandardPixmap.SP_BrowserReload),
+            (self.validate_tool_button, "dialog-ok-apply", QStyle.StandardPixmap.SP_DialogYesButton),
+        ]
+        for button, name, standard in buttons:
+            icon, _fallback = get_tool_icon(self, name, standard)
+            if on_windows_dark and not icon.isNull():
+                icon = self._tint_icon(icon, tint_color)
+            button.setIcon(icon)
 
         icon, fallback = get_tool_icon(self, "settings", QStyle.StandardPixmap.SP_FileDialogDetailedView)
         if fallback:
             alt = QIcon.fromTheme("preferences-system")
             if not alt.isNull():
                 icon = alt
-                fallback = False
-        if fallback:
-            icon = self._build_gear_icon(QColor("#E4E4E4" if self.theme == "dark" else "#1F2937"))
-        elif on_windows_dark:
+        if on_windows_dark and not icon.isNull():
             icon = self._tint_icon(icon, tint_color)
         self.config_button.setIcon(icon)
-
-    @staticmethod
-    def _build_gear_icon(color, size=18):
-        """Draw a minimal gear fallback icon for settings."""
-        pixmap = QPixmap(size, size)
-        pixmap.fill(Qt.GlobalColor.transparent)
-        painter = QPainter(pixmap)
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
-        pen = QPen(color)
-        pen.setWidthF(1.6)
-        pen.setCapStyle(Qt.PenCapStyle.RoundCap)
-        pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
-        painter.setPen(pen)
-        painter.setBrush(Qt.BrushStyle.NoBrush)
-        painter.drawEllipse(6, 6, 6, 6)
-        for angle in range(0, 360, 45):
-            painter.save()
-            painter.translate(size / 2, size / 2)
-            painter.rotate(angle)
-            painter.drawLine(0, -8, 0, -6)
-            painter.restore()
-        painter.end()
-        return QIcon(pixmap)
 
     @staticmethod
     def _tint_icon(icon, color):
