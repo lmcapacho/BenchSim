@@ -118,20 +118,32 @@ class VerilogEditor(QsciScintilla):
         """Apply editor palette using external theme files."""
         colors = self._load_theme_colors(theme_name)
 
-        self.lexer.setPaper(QColor(colors["paper"]))
-        self.lexer.setDefaultColor(QColor(colors["default"]))
+        default_color = QColor(colors["default"])
+        paper_color = QColor(colors["paper"])
+
+        self.lexer.setPaper(paper_color)
+        self.lexer.setDefaultPaper(paper_color)
+        self.lexer.setDefaultColor(default_color)
+        self.setColor(default_color)
+        self.setPaper(paper_color)
+        default_rgb = default_color.rgb() & 0xFFFFFF
+        paper_rgb = paper_color.rgb() & 0xFFFFFF
+        self.SendScintilla(QsciScintilla.SCI_STYLESETFORE, QsciScintilla.STYLE_DEFAULT, default_rgb)
+        self.SendScintilla(QsciScintilla.SCI_STYLESETBACK, QsciScintilla.STYLE_DEFAULT, paper_rgb)
         self.lexer.setColor(QColor(colors["keyword"]), QsciLexerVerilog.Keyword)
         self.lexer.setColor(QColor(colors["preproc"]), QsciLexerVerilog.Preprocessor)
         self.lexer.setColor(QColor(colors["comment"]), QsciLexerVerilog.Comment)
         self.lexer.setColor(QColor(colors["string"]), QsciLexerVerilog.String)
         self.lexer.setColor(QColor(colors["number"]), QsciLexerVerilog.Number)
+        self.lexer.setColor(default_color, QsciLexerVerilog.Identifier)
+        self.lexer.setColor(default_color, QsciLexerVerilog.Operator)
         self.lexer.setColor(QColor(colors["system_task"]), QsciLexerVerilog.SystemTask)
         self.lexer.setColor(QColor(colors["port_conn"]), QsciLexerVerilog.PortConnection)
+        self.lexer.setColor(QColor(colors["port_conn"]), QsciLexerVerilog.DeclareInputPort)
+        self.lexer.setColor(QColor(colors["port_conn"]), QsciLexerVerilog.DeclareOutputPort)
+        self.lexer.setColor(QColor(colors["port_conn"]), QsciLexerVerilog.DeclareInputOutputPort)
         self.lexer.setColor(QColor(colors["keyword2"]), QsciLexerVerilog.KeywordSet2)
         self.lexer.setColor(QColor(colors["user_kw"]), QsciLexerVerilog.UserKeywordSet)
-
-        base_color = QColor(colors["paper"]).rgb() & 0xFFFFFF
-        self.SendScintilla(QsciScintilla.SCI_STYLESETBACK, QsciScintilla.STYLE_DEFAULT, base_color)
         self.setMarginsBackgroundColor(QColor(colors["margin_bg"]))
         self.setMarginsForegroundColor(QColor(colors["margin_fg"]))
         self.setCaretLineBackgroundColor(QColor(colors["caret_line"]))

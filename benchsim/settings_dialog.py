@@ -45,7 +45,9 @@ class ConfigDialog(QDialog):
         self.iverilog_entry = QLineEdit()
         self.iverilog_button = QPushButton()
         self.iverilog_button.setObjectName("browseButton")
-        self.iverilog_button.setIcon(QIcon.fromTheme("folder-open"))
+        self.iverilog_button.setIcon(
+            QIcon.fromTheme("folder-open", self.style().standardIcon(self.style().StandardPixmap.SP_DirOpenIcon))
+        )
         self.iverilog_button.setFixedWidth(30)
         self.iverilog_button.clicked.connect(lambda: self.select_executable("iverilog"))
         iverilog_layout.addWidget(self.iverilog_entry)
@@ -58,7 +60,9 @@ class ConfigDialog(QDialog):
         self.gtkwave_entry = QLineEdit()
         self.gtkwave_button = QPushButton()
         self.gtkwave_button.setObjectName("browseButton")
-        self.gtkwave_button.setIcon(QIcon.fromTheme("folder-open"))
+        self.gtkwave_button.setIcon(
+            QIcon.fromTheme("folder-open", self.style().standardIcon(self.style().StandardPixmap.SP_DirOpenIcon))
+        )
         self.gtkwave_button.setFixedWidth(30)
         self.gtkwave_button.clicked.connect(lambda: self.select_executable("gtkwave"))
         gtkwave_layout.addWidget(self.gtkwave_entry)

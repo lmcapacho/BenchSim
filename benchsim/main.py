@@ -140,19 +140,15 @@ class BenchSimApp(QMainWindow):
         self.recent_combo.currentIndexChanged.connect(self.open_recent_project)
 
         self.folder_button = QToolButton()
-        self.folder_button.setIcon(get_tool_icon(self, "folder-open", QStyle.StandardPixmap.SP_DirOpenIcon))
         self.folder_button.clicked.connect(self.select_folder)
 
         self.reload_button = QToolButton()
-        self.reload_button.setIcon(get_tool_icon(self, "view-refresh", QStyle.StandardPixmap.SP_BrowserReload))
         self.reload_button.clicked.connect(self.reload_verilog_folder)
 
         self.validate_tool_button = QToolButton()
-        self.validate_tool_button.setIcon(QIcon.fromTheme("dialog-ok-apply"))
         self.validate_tool_button.clicked.connect(self.validate_project)
 
         self.config_button = QToolButton()
-        self.config_button.setIcon(QIcon.fromTheme("settings"))
         self.config_button.clicked.connect(self.open_config_dialog)
 
         toolbar_layout.addWidget(self.folder_entry)
@@ -300,7 +296,23 @@ class BenchSimApp(QMainWindow):
             theme_file = self.base_dir / "themes" / "dark.qss"
             self.theme = "dark"
         self.setStyleSheet(self.load_stylesheet(theme_file))
+        self._apply_toolbar_icons()
         self.editor.apply_theme(self.theme)
+
+    def _apply_toolbar_icons(self):
+        """Apply toolbar icons with reliable fallback for platforms without icon themes."""
+        self.folder_button.setIcon(
+            get_tool_icon(self, "folder-open", QStyle.StandardPixmap.SP_DirOpenIcon)
+        )
+        self.reload_button.setIcon(
+            get_tool_icon(self, "view-refresh", QStyle.StandardPixmap.SP_BrowserReload)
+        )
+        self.validate_tool_button.setIcon(
+            get_tool_icon(self, "dialog-ok-apply", QStyle.StandardPixmap.SP_DialogApplyButton)
+        )
+        self.config_button.setIcon(
+            get_tool_icon(self, "settings", QStyle.StandardPixmap.SP_FileDialogDetailedView)
+        )
 
     def apply_language(self):
         self.setWindowTitle(tr("app_name", self.language))
