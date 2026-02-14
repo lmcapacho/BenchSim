@@ -414,8 +414,8 @@ class BenchSimApp(QMainWindow):
         pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
         painter.setPen(pen)
         painter.setBrush(Qt.BrushStyle.NoBrush)
-        painter.drawLine(3.8, 9.4, 7.4, 12.9)
-        painter.drawLine(7.4, 12.9, 14.4, 5.8)
+        painter.drawLine(QPointF(3.8, 9.4), QPointF(7.4, 12.9))
+        painter.drawLine(QPointF(7.4, 12.9), QPointF(14.4, 5.8))
         painter.end()
         return QIcon(pixmap)
 
