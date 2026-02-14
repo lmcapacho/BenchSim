@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 
 # pylint: disable=no-name-in-module
-from PyQt6.QtGui import QColor, QGuiApplication, QIcon, QKeySequence, QPainter, QShortcut
+from PyQt6.QtGui import QColor, QGuiApplication, QIcon, QKeySequence, QPainter, QPen, QPixmap, QShortcut
 from PyQt6.QtCore import QTimer, Qt
 from PyQt6.QtWidgets import (
     QApplication,
@@ -71,7 +71,7 @@ def get_app_icon(base_dir):
 
 
 def get_tool_icon(widget, theme_name, fallback_icon):
-    """Return a visible tool icon with desktop-theme fallback."""
+    """Return icon and whether fallback icon was used."""
     icon = QIcon.fromTheme(theme_name)
     used_fallback = False
     if icon.isNull():
@@ -302,32 +302,63 @@ class BenchSimApp(QMainWindow):
         self.editor.apply_theme(self.theme)
 
     def _apply_toolbar_icons(self):
-        """Apply toolbar icons with reliable fallback for platforms without icon themes."""
-        dark_tint = QColor("#E4E4E4")
+        """Apply system icons and tweak contrast where needed."""
+        tint_color = QColor("#E4E4E4")
+        on_windows_dark = sys.platform.startswith("win") and self.theme == "dark"
 
         icon, fallback = get_tool_icon(self, "folder-open", QStyle.StandardPixmap.SP_DirOpenIcon)
-        if self.theme == "dark" and fallback:
-            icon = self._tint_icon(icon, dark_tint)
+        if on_windows_dark and fallback:
+            icon = self._tint_icon(icon, tint_color)
         self.folder_button.setIcon(icon)
 
         icon, fallback = get_tool_icon(self, "view-refresh", QStyle.StandardPixmap.SP_BrowserReload)
-        if self.theme == "dark" and fallback:
-            icon = self._tint_icon(icon, dark_tint)
+        if on_windows_dark and fallback:
+            icon = self._tint_icon(icon, tint_color)
         self.reload_button.setIcon(icon)
 
-        icon, fallback = get_tool_icon(self, "dialog-ok-apply", QStyle.StandardPixmap.SP_DialogApplyButton)
-        if self.theme == "dark" and fallback:
-            icon = self._tint_icon(icon, dark_tint)
+        icon, fallback = get_tool_icon(self, "dialog-ok-apply", QStyle.StandardPixmap.SP_DialogYesButton)
+        if on_windows_dark and fallback:
+            icon = self._tint_icon(icon, tint_color)
         self.validate_tool_button.setIcon(icon)
 
         icon, fallback = get_tool_icon(self, "settings", QStyle.StandardPixmap.SP_FileDialogDetailedView)
-        if self.theme == "dark" and fallback:
-            icon = self._tint_icon(icon, dark_tint)
+        if fallback:
+            alt = QIcon.fromTheme("preferences-system")
+            if not alt.isNull():
+                icon = alt
+                fallback = False
+        if fallback:
+            icon = self._build_gear_icon(QColor("#E4E4E4" if self.theme == "dark" else "#1F2937"))
+        elif on_windows_dark:
+            icon = self._tint_icon(icon, tint_color)
         self.config_button.setIcon(icon)
 
     @staticmethod
+    def _build_gear_icon(color, size=18):
+        """Draw a minimal gear fallback icon for settings."""
+        pixmap = QPixmap(size, size)
+        pixmap.fill(Qt.GlobalColor.transparent)
+        painter = QPainter(pixmap)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+        pen = QPen(color)
+        pen.setWidthF(1.6)
+        pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+        pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
+        painter.setPen(pen)
+        painter.setBrush(Qt.BrushStyle.NoBrush)
+        painter.drawEllipse(6, 6, 6, 6)
+        for angle in range(0, 360, 45):
+            painter.save()
+            painter.translate(size / 2, size / 2)
+            painter.rotate(angle)
+            painter.drawLine(0, -8, 0, -6)
+            painter.restore()
+        painter.end()
+        return QIcon(pixmap)
+
+    @staticmethod
     def _tint_icon(icon, color):
-        """Create a tinted icon variant for better contrast on dark backgrounds."""
+        """Tint icon for dark backgrounds when fallback icon is too dark."""
         tinted = QIcon()
         for size in (16, 20, 24, 32):
             src = icon.pixmap(size, size)
