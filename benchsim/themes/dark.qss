@@ -55,6 +55,48 @@ QLineEdit:focus {
     border: 1px solid white;
 }
 
+QComboBox {
+    padding: 5px;
+    border-radius: 8px;
+    background-color: #2B2B2B;
+    color: #E4E4E4;
+    border: 1px solid #444;
+}
+QComboBox:focus {
+    border: 1px solid #7FA9FF;
+}
+QComboBox::drop-down {
+    border: none;
+    width: 22px;
+    background: transparent;
+}
+QComboBox QAbstractItemView {
+    background-color: #2B2B2B;
+    color: #E4E4E4;
+    border: 1px solid #444;
+    selection-background-color: #3A4A66;
+    selection-color: #FFFFFF;
+}
+
+QCheckBox {
+    color: #E4E4E4;
+    spacing: 8px;
+}
+QCheckBox::indicator {
+    width: 16px;
+    height: 16px;
+    border: 1px solid #777;
+    border-radius: 3px;
+    background: #1F1F1F;
+}
+QCheckBox::indicator:checked {
+    background-color: #007ACC;
+    border: 1px solid #5DA9E9;
+}
+QCheckBox::indicator:unchecked:hover {
+    border: 1px solid #A0A0A0;
+}
+
 QFrame {
     background-color: #1E1E1E;
     border-bottom: 1px solid #333;
