@@ -73,6 +73,19 @@ TRANSLATIONS = {
         "config_update_auto": "Check updates at startup",
         "config_update_prerelease": "Include pre-releases (RC)",
         "config_check_updates_now": "Check updates now",
+        "desktop_setup_title": "Desktop launcher",
+        "desktop_setup_first_body": (
+            "Create a BenchSim launcher in your applications menu?\n\n"
+            "Executable:\n{path}"
+        ),
+        "desktop_setup_update_body": (
+            "BenchSim executable path changed.\n"
+            "Update launcher to the new path?\n\n"
+            "Executable:\n{path}"
+        ),
+        "desktop_setup_done": "Desktop launcher installed.",
+        "desktop_setup_error": "Could not install desktop launcher: {error}",
+        "desktop_setup_error_icon": "Application icon file was not found.",
         "popup_error_title": "Error",
         "popup_warning_title": "Warning",
         "popup_info_title": "Information",
@@ -172,6 +185,19 @@ TRANSLATIONS = {
         "config_update_auto": "Buscar actualizaciones al iniciar",
         "config_update_prerelease": "Incluir pre-releases (RC)",
         "config_check_updates_now": "Buscar actualizaciones ahora",
+        "desktop_setup_title": "Lanzador de escritorio",
+        "desktop_setup_first_body": (
+            "¿Deseas crear un lanzador de BenchSim en el menú de aplicaciones?\n\n"
+            "Ejecutable:\n{path}"
+        ),
+        "desktop_setup_update_body": (
+            "La ruta del ejecutable de BenchSim cambió.\n"
+            "¿Deseas actualizar el lanzador a la nueva ruta?\n\n"
+            "Ejecutable:\n{path}"
+        ),
+        "desktop_setup_done": "Lanzador de escritorio instalado.",
+        "desktop_setup_error": "No se pudo instalar el lanzador: {error}",
+        "desktop_setup_error_icon": "No se encontró el archivo de icono de la aplicación.",
         "popup_error_title": "Error",
         "popup_warning_title": "Advertencia",
         "popup_info_title": "Información",

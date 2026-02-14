@@ -7,3 +7,4 @@ Icon=benchsim
 Terminal=false
 Categories=Development;Electronics;
 StartupWMClass=benchsim
+X-GNOME-WMClass=benchsim

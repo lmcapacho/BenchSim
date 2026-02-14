@@ -2,6 +2,8 @@
 import html
 import os
 import re
+import shutil
+import subprocess
 import sys
 from pathlib import Path
 
@@ -235,6 +237,7 @@ class BenchSimApp(QMainWindow):
         self.setup_shortcuts()
         self.editor.file_changed.connect(self.tb_changed)
         QTimer.singleShot(1200, self.maybe_check_updates_on_startup)
+        QTimer.singleShot(1600, self.maybe_setup_linux_desktop_entry)
 
     @staticmethod
     def load_stylesheet(theme_path):
@@ -718,6 +721,97 @@ class BenchSimApp(QMainWindow):
         if not cfg.get("update_auto_check", True):
             return
         self.check_for_updates(silent_errors=True)
+
+    def _install_linux_desktop_entry(self, exec_path):
+        icon_src = self.base_dir / "benchsim.png"
+        if not icon_src.is_file():
+            return False, tr("desktop_setup_error_icon", self.language)
+
+        icon_dir = Path.home() / ".local" / "share" / "icons" / "hicolor" / "256x256" / "apps"
+        app_dir = Path.home() / ".local" / "share" / "applications"
+        icon_dir.mkdir(parents=True, exist_ok=True)
+        app_dir.mkdir(parents=True, exist_ok=True)
+
+        icon_dst = icon_dir / "benchsim.png"
+        shutil.copy2(icon_src, icon_dst)
+
+        desktop_path = app_dir / "benchsim.desktop"
+        desktop_content = (
+            "[Desktop Entry]\n"
+            "Type=Application\n"
+            "Name=BenchSim\n"
+            "Comment=Testbench simulation runner for Icarus Verilog + GTKWave\n"
+            f"Exec={exec_path}\n"
+            f"Icon={icon_dst}\n"
+            "Terminal=false\n"
+            "Categories=Development;Electronics;\n"
+            "StartupWMClass=benchsim\n"
+            "X-GNOME-WMClass=benchsim\n"
+        )
+        desktop_path.write_text(desktop_content, encoding="utf-8")
+        desktop_path.chmod(0o755)
+
+        update_db = shutil.which("update-desktop-database")
+        if update_db:
+            subprocess.run([update_db, str(app_dir)], check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+        return True, ""
+
+    def maybe_setup_linux_desktop_entry(self):
+        """Offer automatic desktop launcher setup on Linux packaged builds."""
+        if not sys.platform.startswith("linux"):
+            return
+        if not getattr(sys, "frozen", False):
+            return
+
+        cfg = self.settings.get_config()
+        desktop_path = Path.home() / ".local" / "share" / "applications" / "benchsim.desktop"
+        current_exec = str(Path(sys.executable).resolve())
+        installed = cfg.get("linux_desktop_installed", False)
+        last_exec = cfg.get("linux_desktop_exec", "")
+        dismissed = cfg.get("linux_desktop_prompt_dismissed", False)
+
+        needs_install = not desktop_path.is_file() or not installed
+        moved_exec = bool(installed and last_exec and last_exec != current_exec)
+        if not needs_install and not moved_exec:
+            return
+        if needs_install and dismissed:
+            return
+
+        body_key = "desktop_setup_update_body" if moved_exec else "desktop_setup_first_body"
+        answer = QMessageBox.question(
+            self,
+            tr("desktop_setup_title", self.language),
+            tr(body_key, self.language, path=current_exec),
+        )
+        if answer != QMessageBox.StandardButton.Yes:
+            if needs_install:
+                self.settings.update_config({"linux_desktop_prompt_dismissed": True})
+            return
+
+        success, error_text = self._install_linux_desktop_entry(current_exec)
+        if not success:
+            QMessageBox.warning(
+                self,
+                tr("popup_warning_title", self.language),
+                tr("desktop_setup_error", self.language, error=error_text),
+            )
+            return
+
+        self.settings.update_config(
+            {
+                "linux_desktop_installed": True,
+                "linux_desktop_exec": current_exec,
+                "linux_desktop_prompt_dismissed": False,
+            }
+        )
+        self.dispatcher.handle_message(
+            {
+                "type": "success",
+                "message": tr("desktop_setup_done", self.language),
+                "extras": ["toast"],
+            }
+        )
 
     def check_for_updates(self, silent_errors=False):
         """Check GitHub releases and prompt user when an update is available."""
