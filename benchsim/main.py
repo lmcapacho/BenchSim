@@ -8,7 +8,7 @@ import sys
 from pathlib import Path
 
 # pylint: disable=no-name-in-module
-from PyQt6.QtGui import QGuiApplication, QIcon, QKeySequence, QShortcut
+from PyQt6.QtGui import QColor, QGuiApplication, QIcon, QKeySequence, QPainter, QShortcut
 from PyQt6.QtCore import QTimer, Qt
 from PyQt6.QtWidgets import (
     QApplication,
@@ -73,9 +73,11 @@ def get_app_icon(base_dir):
 def get_tool_icon(widget, theme_name, fallback_icon):
     """Return a visible tool icon with desktop-theme fallback."""
     icon = QIcon.fromTheme(theme_name)
+    used_fallback = False
     if icon.isNull():
         icon = widget.style().standardIcon(fallback_icon)
-    return icon
+        used_fallback = True
+    return icon, used_fallback
 
 
 class BenchSimApp(QMainWindow):
@@ -301,18 +303,43 @@ class BenchSimApp(QMainWindow):
 
     def _apply_toolbar_icons(self):
         """Apply toolbar icons with reliable fallback for platforms without icon themes."""
-        self.folder_button.setIcon(
-            get_tool_icon(self, "folder-open", QStyle.StandardPixmap.SP_DirOpenIcon)
-        )
-        self.reload_button.setIcon(
-            get_tool_icon(self, "view-refresh", QStyle.StandardPixmap.SP_BrowserReload)
-        )
-        self.validate_tool_button.setIcon(
-            get_tool_icon(self, "dialog-ok-apply", QStyle.StandardPixmap.SP_DialogApplyButton)
-        )
-        self.config_button.setIcon(
-            get_tool_icon(self, "settings", QStyle.StandardPixmap.SP_FileDialogDetailedView)
-        )
+        dark_tint = QColor("#E4E4E4")
+
+        icon, fallback = get_tool_icon(self, "folder-open", QStyle.StandardPixmap.SP_DirOpenIcon)
+        if self.theme == "dark" and fallback:
+            icon = self._tint_icon(icon, dark_tint)
+        self.folder_button.setIcon(icon)
+
+        icon, fallback = get_tool_icon(self, "view-refresh", QStyle.StandardPixmap.SP_BrowserReload)
+        if self.theme == "dark" and fallback:
+            icon = self._tint_icon(icon, dark_tint)
+        self.reload_button.setIcon(icon)
+
+        icon, fallback = get_tool_icon(self, "dialog-ok-apply", QStyle.StandardPixmap.SP_DialogApplyButton)
+        if self.theme == "dark" and fallback:
+            icon = self._tint_icon(icon, dark_tint)
+        self.validate_tool_button.setIcon(icon)
+
+        icon, fallback = get_tool_icon(self, "settings", QStyle.StandardPixmap.SP_FileDialogDetailedView)
+        if self.theme == "dark" and fallback:
+            icon = self._tint_icon(icon, dark_tint)
+        self.config_button.setIcon(icon)
+
+    @staticmethod
+    def _tint_icon(icon, color):
+        """Create a tinted icon variant for better contrast on dark backgrounds."""
+        tinted = QIcon()
+        for size in (16, 20, 24, 32):
+            src = icon.pixmap(size, size)
+            if src.isNull():
+                continue
+            dst = src.copy()
+            painter = QPainter(dst)
+            painter.setCompositionMode(QPainter.CompositionMode.CompositionMode_SourceIn)
+            painter.fillRect(dst.rect(), color)
+            painter.end()
+            tinted.addPixmap(dst)
+        return tinted if not tinted.isNull() else icon
 
     def apply_language(self):
         self.setWindowTitle(tr("app_name", self.language))
