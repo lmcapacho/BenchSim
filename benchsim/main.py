@@ -9,7 +9,7 @@ from pathlib import Path
 
 # pylint: disable=no-name-in-module
 from PyQt6.QtGui import QColor, QGuiApplication, QIcon, QKeySequence, QPainter, QPen, QPixmap, QShortcut
-from PyQt6.QtCore import QSize, QTimer, Qt
+from PyQt6.QtCore import QPointF, QSize, QTimer, Qt
 from PyQt6.QtWidgets import (
     QApplication,
     QCheckBox,
@@ -397,8 +397,8 @@ class BenchSimApp(QMainWindow):
         painter.setPen(pen)
         painter.setBrush(Qt.BrushStyle.NoBrush)
         painter.drawArc(3, 3, 12, 12, 35 * 16, 280 * 16)
-        painter.drawLine(12, 3, 15, 4)
-        painter.drawLine(15, 4, 13.8, 6.2)
+        painter.drawLine(QPointF(12.0, 3.0), QPointF(15.0, 4.0))
+        painter.drawLine(QPointF(15.0, 4.0), QPointF(13.8, 6.2))
         painter.end()
         return QIcon(pixmap)
 
