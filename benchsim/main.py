@@ -771,7 +771,15 @@ class BenchSimApp(QMainWindow):
         last_exec = cfg.get("linux_desktop_exec", "")
         dismissed = cfg.get("linux_desktop_prompt_dismissed", False)
 
-        needs_install = not desktop_path.is_file() or not installed
+        stale_desktop = False
+        if desktop_path.is_file():
+            try:
+                desktop_text = desktop_path.read_text(encoding="utf-8")
+                stale_desktop = ("Icon=benchsim" in desktop_text) or ("X-GNOME-WMClass=benchsim" not in desktop_text)
+            except Exception:  # pylint: disable=broad-exception-caught
+                stale_desktop = True
+
+        needs_install = (not desktop_path.is_file()) or (not installed) or stale_desktop
         moved_exec = bool(installed and last_exec and last_exec != current_exec)
         if not needs_install and not moved_exec:
             return
