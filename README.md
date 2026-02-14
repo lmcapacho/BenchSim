@@ -20,6 +20,7 @@ BenchSim is a desktop app (PyQt6 + QScintilla) to edit, compile, and simulate Ve
 - `benchsim/`: application source code.
 - `packaging/pyinstaller/BenchSim.spec`: executable build recipe.
 - `packaging/linux/benchsim.desktop`: desktop entry template.
+- `packaging/windows/BenchSim.iss`: Inno Setup installer script (Start Menu/Desktop shortcuts).
 - `sim_icon_package/`: icon source/assets.
 - `main.v`, `main_tb.v`: minimal Verilog example.
 
@@ -112,3 +113,31 @@ Important: distribute/run the whole `dist/BenchSim/` folder, not only the `Bench
   - `~/.local/share/applications/benchsim.desktop`
 - Icons are copied to:
   - `~/.local/share/icons/hicolor/256x256/apps/benchsim.png`
+
+## Windows Installer (Start Menu Entry)
+
+BenchSim includes an Inno Setup script to create a Windows installer that adds:
+
+- Start Menu shortcut (`Programs > BenchSim`)
+- Optional Desktop shortcut
+- Uninstaller entry in installed apps
+
+### Steps
+
+1. Build Windows executable first (on Windows):
+
+```powershell
+python -m PyInstaller packaging/pyinstaller/BenchSim.spec --noconfirm --clean
+```
+
+2. Install Inno Setup (if needed): https://jrsoftware.org/isinfo.php
+
+3. Build installer from terminal:
+
+```powershell
+"C:\Program Files (x86)\Inno Setup 6\ISCC.exe" packaging\windows\BenchSim.iss
+```
+
+Installer output:
+
+- `dist\installer\BenchSim-Setup-<version>.exe`
