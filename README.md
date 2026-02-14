@@ -141,3 +141,14 @@ python -m PyInstaller packaging/pyinstaller/BenchSim.spec --noconfirm --clean
 Installer output:
 
 - `dist\installer\BenchSim-Setup-<version>.exe`
+
+## Automated Releases (CI/CD)
+
+This repository includes `.github/workflows/release.yml` to automate release packaging.
+
+When you push a tag like `v0.1.0`:
+
+1. Linux package is built (`tar.gz` from `dist/BenchSim`).
+2. Windows portable package is built (`zip` from `dist\BenchSim`).
+3. Windows installer is built using Inno Setup (`.exe`).
+4. All artifacts are attached automatically to the GitHub Release for that tag.
