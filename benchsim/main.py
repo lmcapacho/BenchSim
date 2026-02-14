@@ -754,6 +754,15 @@ class BenchSimApp(QMainWindow):
         update_db = shutil.which("update-desktop-database")
         if update_db:
             subprocess.run([update_db, str(app_dir)], check=False, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        update_icon_cache = shutil.which("gtk-update-icon-cache")
+        if update_icon_cache:
+            icon_root = Path.home() / ".local" / "share" / "icons" / "hicolor"
+            subprocess.run(
+                [update_icon_cache, "-f", "-t", str(icon_root)],
+                check=False,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
 
         return True, ""
 
@@ -783,7 +792,9 @@ class BenchSimApp(QMainWindow):
         moved_exec = bool(installed and last_exec and last_exec != current_exec)
         if not needs_install and not moved_exec:
             return
-        if needs_install and dismissed:
+
+        # If launcher is missing/stale, prompt again even if user dismissed before.
+        if needs_install and dismissed and desktop_path.is_file() and not stale_desktop:
             return
 
         body_key = "desktop_setup_update_body" if moved_exec else "desktop_setup_first_body"
@@ -941,9 +952,13 @@ def main():
     app.setOrganizationName("BenchSim")
     if hasattr(app, "setDesktopFileName"):
         app.setDesktopFileName("benchsim")
-    app.setWindowIcon(get_app_icon(Path(__file__).resolve().parent))
+    app.setWindowIcon(get_app_icon(get_resource_base_dir()))
     window = BenchSimApp()
-    window.showMaximized()
+    window.show()
+    window.setWindowState(window.windowState() | Qt.WindowState.WindowMaximized)
+    # Some Linux window managers ignore the first maximize request.
+    QTimer.singleShot(0, window.showMaximized)
+    QTimer.singleShot(120, window.showMaximized)
     return app.exec()
 
 
