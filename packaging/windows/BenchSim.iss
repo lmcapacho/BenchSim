@@ -1,5 +1,5 @@
 #define MyAppName "BenchSim"
-#define MyAppVersion "0.1.0rc1"
+#define MyAppVersion "0.1.0"
 #define MyAppPublisher "BenchSim"
 #define MyAppURL "https://github.com/lmcapacho/BenchSim"
 #define MyAppExeName "BenchSim.exe"

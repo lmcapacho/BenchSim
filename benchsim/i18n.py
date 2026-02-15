@@ -115,8 +115,8 @@ TRANSLATIONS = {
         "update_not_available": "BenchSim is up to date ({version}).",
         "update_available_title": "Update available",
         "update_available_body": (
-            "Current version: {current}\\n"
-            "Latest version: {latest}\\n\\n"
+            "Current version: {current}\n"
+            "Latest version: {latest}\n\n"
             "Open release page to download and install?"
         ),
     },
@@ -227,8 +227,8 @@ TRANSLATIONS = {
         "update_not_available": "BenchSim está actualizado ({version}).",
         "update_available_title": "Actualización disponible",
         "update_available_body": (
-            "Versión actual: {current}\\n"
-            "Última versión: {latest}\\n\\n"
+            "Versión actual: {current}\n"
+            "Última versión: {latest}\n\n"
             "¿Abrir la página de release para descargar e instalar?"
         ),
     },
