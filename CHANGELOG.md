@@ -2,6 +2,34 @@
 
 All notable changes to BenchSim are documented in this file.
 
+## [0.1.0] - 2026-02-15
+
+### Added
+- Verilog editor autocomplete for common keywords and document-local symbols.
+- Integrated recent projects selector in the main toolbar.
+- Find and replace workflow for faster editor navigation.
+- Linux first-run desktop launcher setup, with stale launcher refresh.
+- Windows installer support (Inno Setup script).
+- Automated release workflow to generate Linux and Windows distributables.
+
+### Changed
+- Updated application and packaging icon assets.
+- README expanded with release/build instructions and Icestudio usage guidance.
+- Version aligned to stable `0.1.0`.
+- UI action hierarchy simplified:
+  - primary action as `Save & Simulate`
+  - secondary `Validate` action.
+
+### Fixed
+- GTKWave restart flow to avoid hangs on repeated simulations.
+- Global keyboard shortcuts for save, simulate, validate, and settings actions.
+- PyInstaller runtime loading issues for frozen builds.
+- Windows app icon association and installer architecture warnings.
+- Dark/light theme contrast issues across editor tokens, checkboxes, comboboxes, and toolbar icons.
+- Native/system icon handling on Windows and Linux with dark-theme visibility fallback.
+- Update dialog formatting and version comparison behavior (`0.1.0rc1` vs `0.1.0`).
+- Legacy `VerilogSimulator` naming traces removed from codebase.
+
 ## [0.1.0-rc1] - 2026-02-12
 
 ### Added
