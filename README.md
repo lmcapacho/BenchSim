@@ -4,16 +4,23 @@ BenchSim is a desktop app (PyQt6 + QScintilla) to edit, compile, and simulate Ve
 
 ## Key Features
 
-- Icestudio-oriented workflow (including `ice-build` project layouts).
-- Generic Verilog workflow (plain folders with `.v` + `*_tb.v`).
-- Auto-discovery of source files and testbenches.
-- Console errors with clickable `file:line:col` navigation.
-- Editor productivity:
-  - Verilog autocomplete (keywords + symbols from current file).
-  - Find/replace bar (`Ctrl+F`, `Ctrl+H`, `F3`, `Shift+F3`).
+- Two project workflows:
+  - Icestudio-oriented workflow (including `ice-build` project layouts).
+  - Generic Verilog workflow (plain folders with `.v` + `*_tb.v`).
+- Auto-discovery of source files and testbenches (`Auto`, `Icestudio`, `Generic` modes).
+- Save-first simulation flow (`Save & Simulate`) plus optional project validation.
+- Console diagnostics with clickable `file:line:col` navigation to jump in-editor.
+- Verilog editor productivity:
+  - syntax highlighting + autocomplete (keywords + symbols from current file),
+  - find/replace bar and fast navigation between matches,
+  - configurable editor font size from Settings,
+  - keyboard and mouse zoom controls (`Ctrl++`, `Ctrl+-`, `Ctrl+0`, `Ctrl+wheel`).
 - Recent project folders integrated in the top toolbar.
+- Localized UI/messages (English and Spanish), ready for extension.
 - Built-in update checker (GitHub Releases).
-- Linux first-run desktop launcher setup for packaged builds.
+- Packaged app UX helpers:
+  - Linux first-run desktop launcher setup/update,
+  - Windows installer support (Inno Setup).
 
 ## Repository Layout
 
@@ -85,10 +92,18 @@ BenchSim supports 3 discovery modes:
 - `Ctrl+S`: Save
 - `Ctrl+R`: Simulate (auto-save + run)
 - `Ctrl+Shift+V`: Validate project
+- `Ctrl+O`: Open project folder
+- `F5`: Reload project files
+- `Ctrl+,`: Open settings
 - `Ctrl+F`: Find
 - `Ctrl+H`: Replace
 - `F3` / `Shift+F3`: Find next / previous
+- `Esc`: Close find/replace bar
 - `Ctrl+Space`: Trigger autocomplete
+- `Ctrl++` / `Ctrl+=`: Increase editor font size
+- `Ctrl+-`: Decrease editor font size
+- `Ctrl+0`: Reset editor font size
+- `Ctrl+Mouse Wheel`: Zoom editor font in/out
 
 ## Build Executable
 
