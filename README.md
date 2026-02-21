@@ -2,11 +2,7 @@
 
 BenchSim is a desktop app (PyQt6 + QScintilla) to edit, compile, and simulate Verilog testbenches with Icarus Verilog (`iverilog` + `vvp`) and visualize waveforms in GTKWave.
 
-## Screenshot
-
 ![BenchSim main window](docs/screenshots/main-window.png)
-
-> Add your app screenshot at `docs/screenshots/main-window.png`.
 
 ## Key Features
 
