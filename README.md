@@ -1,4 +1,4 @@
-# <img src="sim_icon_package/benchsim.png" alt="BenchSim icon" width="34" valign="middle"> BenchSim
+# <img src="sim_icon_package/benchsim.png" alt="BenchSim icon" width="34" valign="middle"> BenchSim [![CI](https://github.com/lmcapacho/BenchSim/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/lmcapacho/BenchSim/actions/workflows/ci.yml)
 
 BenchSim is a desktop app (PyQt6 + QScintilla) to edit, compile, and simulate Verilog testbenches with Icarus Verilog (`iverilog` + `vvp`) and visualize waveforms in GTKWave.
 
