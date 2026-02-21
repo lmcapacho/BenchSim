@@ -20,6 +20,7 @@ a = Analysis(
         (os.path.join(project_root, 'benchsim', 'themes', 'light.qss'), 'benchsim/themes'),
         (os.path.join(project_root, 'benchsim', 'themes', 'editor_dark.json'), 'benchsim/themes'),
         (os.path.join(project_root, 'benchsim', 'themes', 'editor_light.json'), 'benchsim/themes'),
+        (os.path.join(project_root, 'benchsim', 'themes', 'gtkwave.rc'), 'benchsim/themes'),
     ],
     hiddenimports=["PyQt6.sip", "PyQt6.Qsci"],
     hookspath=[],

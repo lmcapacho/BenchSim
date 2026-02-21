@@ -25,6 +25,20 @@ class SimulationManager:
         self.gtkwave_thread = None
         self.settings = SettingsManager(APP_NAME)
 
+    @staticmethod
+    def _resource_base_dir():
+        """Return resource base directory for source and frozen builds."""
+        if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
+            return Path(sys._MEIPASS) / "benchsim"
+        return Path(__file__).resolve().parent
+
+    def _select_gtkwave_rc_file(self):
+        """Return the default GTKWave rc file used by BenchSim."""
+        rc_file = self._resource_base_dir() / "themes" / "gtkwave.rc"
+        if rc_file.is_file():
+            return str(rc_file)
+        return None
+
     def _stop_tracked_gtkwave(self):
         """Stop only the GTKWave process started by BenchSim, if any."""
         if not self.gtkwave_thread:
@@ -321,7 +335,8 @@ class SimulationManager:
 
     def run_simulation(self, screen_size, folder=None, mode="auto", tb_file=None):
         """Run compile/simulate/visualize pipeline."""
-        lang = normalize_lang(self.settings.get_config().get("language", "en"))
+        config = self.settings.get_config()
+        lang = normalize_lang(config.get("language", "en"))
         success, messages, plan = self.build_compile_plan(
             folder=folder,
             mode=mode,
@@ -424,8 +439,12 @@ class SimulationManager:
             )
             return False, messages
 
-        gtkwave_cmd = [gtkwave, gtkw_config]
-        gtkwave_cmd_text = f'"{gtkwave}" "{gtkw_config}"'
+        gtkwave_cmd = [gtkwave]
+        rc_file = self._select_gtkwave_rc_file()
+        if rc_file:
+            gtkwave_cmd.extend(["--rcfile", rc_file])
+        gtkwave_cmd.append(gtkw_config)
+        gtkwave_cmd_text = " ".join(f'"{part}"' if " " in part else part for part in gtkwave_cmd)
 
         if self.gtkwave_thread and self.gtkwave_thread.isRunning():
             messages.append(create_message(MessageType.SUCCESS, tr("msg_sim_updated", lang), extras=["toast"]))

@@ -1,0 +1,17 @@
+# BenchSim GTKWave profile
+
+color_back 111111
+color_0 00a84f
+color_1 39ff14
+color_high 39ff14
+color_low 00a84f
+color_grid 2f2f2f
+color_time e6e6e6
+color_value e6e6e6
+
+use_fat_lines 1
+show_grid 1
+use_roundcaps 1
+
+fontname_signals Monospace 13
+fontname_waves Monospace 12
