@@ -1,35 +1,27 @@
 # <img src="sim_icon_package/benchsim.png" alt="BenchSim icon" width="34" valign="middle"> BenchSim
 
-BenchSim is a desktop app (PyQt6 + QScintilla) to edit, compile, and simulate Verilog testbenches using Icarus Verilog (`iverilog` + `vvp`) and visualize waveforms in GTKWave.
+BenchSim is a desktop app (PyQt6 + QScintilla) to edit, compile, and simulate Verilog testbenches with Icarus Verilog (`iverilog` + `vvp`) and visualize waveforms in GTKWave.
+
+## Screenshot
+
+![BenchSim main window](docs/screenshots/main-window.png)
+
+> Add your app screenshot at `docs/screenshots/main-window.png`.
 
 ## Key Features
 
-- Two project workflows:
-  - Icestudio-oriented workflow (including `ice-build` project layouts).
-  - Generic Verilog workflow (plain folders with `.v` + `*_tb.v`).
-- Auto-discovery of source files and testbenches (`Auto`, `Icestudio`, `Generic` modes).
-- Save-first simulation flow (`Save & Simulate`) plus optional project validation.
-- Console diagnostics with clickable `file:line:col` navigation to jump in-editor.
-- Verilog editor productivity:
-  - syntax highlighting + autocomplete (keywords + symbols from current file),
-  - find/replace bar and fast navigation between matches,
-  - configurable editor font size from Settings,
-  - keyboard and mouse zoom controls (`Ctrl++`, `Ctrl+-`, `Ctrl+0`, `Ctrl+wheel`).
-- Recent project folders integrated in the top toolbar.
-- Localized UI/messages (English and Spanish), ready for extension.
-- Built-in update checker (GitHub Releases).
-- Packaged app UX helpers:
-  - Linux first-run desktop launcher setup/update,
-  - Windows installer support (Inno Setup).
-
-## Repository Layout
-
-- `benchsim/`: application source code.
-- `packaging/pyinstaller/BenchSim.spec`: executable build recipe.
-- `packaging/linux/benchsim.desktop`: desktop entry template.
-- `packaging/windows/BenchSim.iss`: Inno Setup installer script (Start Menu/Desktop shortcuts).
-- `sim_icon_package/`: icon source/assets.
-- `main.v`, `main_tb.v`: minimal Verilog example.
+- Dual workflow support: `Icestudio` and `Generic` Verilog projects.
+- Auto source/testbench discovery (`Auto`, `Icestudio`, `Generic` modes).
+- Fast simulation loop: `Save` + `Simulate` with compile/run logs.
+- Clickable compile errors (`file:line:col`) to jump in the editor.
+- Verilog-focused editor:
+  - syntax highlighting,
+  - autocomplete (keywords + document symbols),
+  - find/replace,
+  - adjustable font size (Settings, shortcuts, `Ctrl+Mouse Wheel`).
+- Recent projects in the top toolbar.
+- UI language support (`English`, `Español`).
+- Built-in update checker via GitHub Releases.
 
 ## Requirements
 
@@ -37,57 +29,37 @@ BenchSim is a desktop app (PyQt6 + QScintilla) to edit, compile, and simulate Ve
 - Icarus Verilog (`iverilog`, `vvp`)
 - GTKWave
 
-## Install (Development)
+## Quick Start (Development)
 
 ```bash
 python -m venv .venv
 source .venv/bin/activate
 pip install -e .
-```
-
-## Run (Development)
-
-```bash
 benchsim
 ```
 
-or
+Alternative run command:
 
 ```bash
 python -m benchsim.main
 ```
 
-## Project Modes
+## Usage
 
-BenchSim supports 3 discovery modes:
+### Icestudio projects
 
-- `Auto`
-  Detects `Icestudio` when an `ice-build/` folder exists, otherwise uses `Generic`.
-- `Icestudio`
-  Searches Verilog sources in project root and `ice-build/**`, and supports `*_tb.v` in root or inside `ice-build/**`.
-  If multiple Icestudio subprojects exist, open a specific folder such as:
-  `ice-build/<project_name>/`
-- `Generic`
-  Uses `.v` and `*_tb.v` files from the selected folder.
+1. Export from Icestudio so `main.v` is generated under `ice-build/<project_name>/`.
+2. Place your `*_tb.v` testbench in project root or in `ice-build/<project_name>/`.
+3. Open the project folder in BenchSim.
+4. If `ice-build` contains multiple projects, open a single project folder directly: `ice-build/<project_name>/`.
 
-## Icestudio Usage (Recommended)
+### Generic Verilog projects
 
-1. Export your design from Icestudio (this generates `main.v` under `ice-build/<project_name>/`).
-2. Place your testbench (`*_tb.v`, e.g. `main_tb.v`) in:
-   - project root, or
-   - `ice-build/<project_name>/` (recommended for multi-project setups).
-3. In BenchSim, open either:
-   - the main project folder (single Icestudio project), or
-   - directly `ice-build/<project_name>/` (multiple projects).
-4. Click `Simulate` (auto-saves first).
-
-## Generic Verilog Usage
-
-1. Put your DUT/source `.v` files and one or more `*_tb.v` files in the same folder.
+1. Put DUT/source `.v` files and one or more `*_tb.v` files in the same folder.
 2. Open that folder in BenchSim.
-3. Select testbench and click `Simulate`.
+3. Select testbench and run simulation.
 
-## Shortcuts
+## Keyboard Shortcuts
 
 - `Ctrl+S`: Save
 - `Ctrl+R`: Simulate (auto-save + run)
@@ -105,49 +77,18 @@ BenchSim supports 3 discovery modes:
 - `Ctrl+0`: Reset editor font size
 - `Ctrl+Mouse Wheel`: Zoom editor font in/out
 
-## Build Executable
+## Packaging
 
-Use the provided PyInstaller spec:
+### Build executable (PyInstaller)
 
 ```bash
 source .venv/bin/activate
 python -m PyInstaller packaging/pyinstaller/BenchSim.spec --noconfirm --clean
 ```
 
-Output is `onedir`:
+Output is generated in `dist/BenchSim/` (onedir). Distribute the full folder, not only the binary.
 
-- executable: `dist/BenchSim/BenchSim`
-- runtime/libs: `dist/BenchSim/_internal/`
-
-Important: distribute/run the whole `dist/BenchSim/` folder, not only the `BenchSim` binary.
-
-## Linux Notes
-
-- For packaged Linux builds, BenchSim can create/update a desktop launcher on first run.
-- The launcher is written to:
-  - `~/.local/share/applications/benchsim.desktop`
-- Icons are copied to:
-  - `~/.local/share/icons/hicolor/256x256/apps/benchsim.png`
-
-## Windows Installer (Start Menu Entry)
-
-BenchSim includes an Inno Setup script to create a Windows installer that adds:
-
-- Start Menu shortcut (`Programs > BenchSim`)
-- Optional Desktop shortcut
-- Uninstaller entry in installed apps
-
-### Steps
-
-1. Build Windows executable first (on Windows):
-
-```powershell
-python -m PyInstaller packaging/pyinstaller/BenchSim.spec --noconfirm --clean
-```
-
-2. Install Inno Setup (if needed): https://jrsoftware.org/isinfo.php
-
-3. Build installer from terminal:
+### Windows installer (Inno Setup)
 
 ```powershell
 "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" packaging\windows\BenchSim.iss
@@ -157,13 +98,13 @@ Installer output:
 
 - `dist\installer\BenchSim-Setup-<version>.exe`
 
-## Automated Releases (CI/CD)
+## Repository Layout
 
-This repository includes `.github/workflows/release.yml` to automate release packaging.
-
-When you push a tag like `v0.1.0`:
-
-1. Linux package is built (`tar.gz` from `dist/BenchSim`).
-2. Windows portable package is built (`zip` from `dist\BenchSim`).
-3. Windows installer is built using Inno Setup (`.exe`).
-4. All artifacts are attached automatically to the GitHub Release for that tag.
+- `benchsim/`: app source code
+- `benchsim/themes/`: UI/editor theme files
+- `packaging/pyinstaller/`: PyInstaller spec
+- `packaging/windows/`: Inno Setup installer script
+- `packaging/linux/`: desktop entry template
+- `sim_icon_package/`: icon assets
+- `docs/screenshots/`: README screenshots
+- `CHANGELOG.md`: release history
