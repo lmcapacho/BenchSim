@@ -63,6 +63,7 @@ TRANSLATIONS = {
         "config_language": "Language",
         "config_theme": "Theme",
         "config_editor_font_size": "Editor font size",
+        "config_current_version": "Installed version: {version}",
         "theme_dark": "Dark",
         "theme_light": "Light",
         "config_save": "Save",
@@ -118,8 +119,13 @@ TRANSLATIONS = {
         "update_available_body": (
             "Current version: {current}\n"
             "Latest version: {latest}\n\n"
-            "Open release page to download and install?"
+            "Download and prepare update now?"
         ),
+        "update_asset_not_found": "No compatible update package was found. Opening release page.",
+        "update_download_failed": "Update download failed: {error}",
+        "update_download_done": "Update package downloaded:\n{path}",
+        "update_launching_installer": "Launching installer. BenchSim will close now.",
+        "update_manual_install_hint": "Open the downloaded package and complete installation manually.",
         "status_font_size": "Editor font size: {size}px",
     },
     "es": {
@@ -177,6 +183,7 @@ TRANSLATIONS = {
         "config_language": "Idioma",
         "config_theme": "Tema",
         "config_editor_font_size": "Tamaño de fuente del editor",
+        "config_current_version": "Versión instalada: {version}",
         "theme_dark": "Oscuro",
         "theme_light": "Claro",
         "config_save": "Guardar",
@@ -232,8 +239,13 @@ TRANSLATIONS = {
         "update_available_body": (
             "Versión actual: {current}\n"
             "Última versión: {latest}\n\n"
-            "¿Abrir la página de release para descargar e instalar?"
+            "¿Descargar y preparar la actualización ahora?"
         ),
+        "update_asset_not_found": "No se encontró un paquete compatible. Se abrirá la página de releases.",
+        "update_download_failed": "Falló la descarga de la actualización: {error}",
+        "update_download_done": "Paquete de actualización descargado:\n{path}",
+        "update_launching_installer": "Iniciando instalador. BenchSim se cerrará ahora.",
+        "update_manual_install_hint": "Abre el paquete descargado y completa la instalación manualmente.",
         "status_font_size": "Tamaño de fuente del editor: {size}px",
     },
 }

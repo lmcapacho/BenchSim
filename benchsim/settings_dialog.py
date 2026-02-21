@@ -22,7 +22,12 @@ from PyQt6.QtWidgets import (
 
 from .i18n import LANG_OPTIONS, normalize_lang, tr
 from .settings_manager import SettingsManager
-from .updater import check_for_updates, get_current_version
+from .updater import (
+    check_for_updates,
+    download_asset,
+    get_current_version,
+    launch_installer,
+)
 
 APP_NAME = "BenchSim"
 
@@ -41,6 +46,12 @@ class ConfigDialog(QDialog):
         self.setWindowTitle(tr("config_title", self.language))
 
         layout = QVBoxLayout()
+
+        self.current_version = get_current_version()
+        self.version_label = QLabel(
+            tr("config_current_version", self.language, version=self.current_version)
+        )
+        layout.addWidget(self.version_label)
 
         iverilog_label = QLabel(tr("config_iverilog", self.language))
         iverilog_layout = QHBoxLayout()
@@ -220,10 +231,10 @@ class ConfigDialog(QDialog):
         self.accept()
 
     def check_updates_now(self):
-        """Run manual update check and open release page when available."""
+        """Run manual update check and offer download/install flow."""
         lang = self._active_language()
         result = check_for_updates(
-            current_version=get_current_version(),
+            current_version=self.current_version,
             include_prerelease=self.update_include_prerelease.isChecked(),
         )
 
@@ -243,7 +254,7 @@ class ConfigDialog(QDialog):
             )
             return
 
-        should_open = QMessageBox.question(
+        should_download = QMessageBox.question(
             self,
             tr("update_available_title", lang),
             tr(
@@ -253,8 +264,58 @@ class ConfigDialog(QDialog):
                 latest=result.get("latest_version", "?"),
             ),
         )
-        if should_open == QMessageBox.StandardButton.Yes:
+        if should_download != QMessageBox.StandardButton.Yes:
+            return
+
+        asset = result.get("selected_asset")
+        if not asset:
+            QMessageBox.information(
+                self,
+                tr("popup_info_title", lang),
+                tr("update_asset_not_found", lang),
+            )
             webbrowser.open(result.get("release_url", ""))
+            return
+
+        try:
+            package_path = download_asset(asset)
+        except Exception as exc:  # pylint: disable=broad-exception-caught
+            QMessageBox.warning(
+                self,
+                tr("popup_warning_title", lang),
+                tr("update_download_failed", lang, error=str(exc)),
+            )
+            webbrowser.open(result.get("release_url", ""))
+            return
+
+        QMessageBox.information(
+            self,
+            tr("popup_info_title", lang),
+            tr("update_download_done", lang, path=package_path),
+        )
+
+        launched = False
+        try:
+            launched = launch_installer(package_path)
+        except Exception:  # pylint: disable=broad-exception-caught
+            launched = False
+
+        if launched and sys.platform.startswith("win") and package_path.lower().endswith(".exe"):
+            QMessageBox.information(
+                self,
+                tr("popup_info_title", lang),
+                tr("update_launching_installer", lang),
+            )
+            self.accept()
+            if self.parent() is not None:
+                self.parent().close()
+            return
+
+        QMessageBox.information(
+            self,
+            tr("popup_info_title", lang),
+            tr("update_manual_install_hint", lang),
+        )
 
     def select_executable(self, program_name):
         """Open a file dialog to select executable path."""
