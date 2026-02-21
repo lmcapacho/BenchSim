@@ -95,6 +95,7 @@ class BenchSimApp(QMainWindow):
         cfg = self.settings.get_config()
         self.language = normalize_lang(cfg.get("language", "en"))
         self.theme = cfg.get("theme", "dark")
+        self.editor_font_size = self._sanitize_font_size(cfg.get("editor_font_size", 12))
 
         self.setWindowIcon(get_app_icon(self.base_dir))
 
@@ -208,6 +209,9 @@ class BenchSimApp(QMainWindow):
         layout.addSpacing(15)
 
         self.editor = VerilogEditor(self)
+        self.editor.set_editor_font_size(self.editor_font_size)
+        self.editor.zoom_requested.connect(self._on_editor_zoom_requested)
+        self.editor.zoom_reset_requested.connect(self.reset_editor_font_size)
         layout.addWidget(self.editor, 4)
 
         self.console = QTextBrowser()
@@ -290,6 +294,54 @@ class BenchSimApp(QMainWindow):
         self.shortcut_autocomplete = QShortcut(QKeySequence("Ctrl+Space"), self)
         self.shortcut_autocomplete.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
         self.shortcut_autocomplete.activated.connect(self.editor.trigger_autocomplete)
+
+        self.shortcut_zoom_in_eq = QShortcut(QKeySequence("Ctrl+="), self)
+        self.shortcut_zoom_in_eq.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
+        self.shortcut_zoom_in_eq.activated.connect(self.increase_editor_font_size)
+
+        self.shortcut_zoom_in_plus = QShortcut(QKeySequence("Ctrl++"), self)
+        self.shortcut_zoom_in_plus.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
+        self.shortcut_zoom_in_plus.activated.connect(self.increase_editor_font_size)
+
+        self.shortcut_zoom_out = QShortcut(QKeySequence("Ctrl+-"), self)
+        self.shortcut_zoom_out.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
+        self.shortcut_zoom_out.activated.connect(self.decrease_editor_font_size)
+
+        self.shortcut_zoom_reset = QShortcut(QKeySequence("Ctrl+0"), self)
+        self.shortcut_zoom_reset.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
+        self.shortcut_zoom_reset.activated.connect(self.reset_editor_font_size)
+
+        self.shortcut_zoom_reset_kp = QShortcut(QKeySequence("Ctrl+KP_0"), self)
+        self.shortcut_zoom_reset_kp.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
+        self.shortcut_zoom_reset_kp.activated.connect(self.reset_editor_font_size)
+
+    @staticmethod
+    def _sanitize_font_size(value):
+        try:
+            parsed = int(value)
+        except (TypeError, ValueError):
+            parsed = 12
+        return max(VerilogEditor.MIN_FONT_SIZE, min(VerilogEditor.MAX_FONT_SIZE, parsed))
+
+    def _set_editor_font_size(self, new_size, persist=True):
+        size = self._sanitize_font_size(new_size)
+        self.editor.set_editor_font_size(size)
+        self.editor_font_size = self.editor.get_editor_font_size()
+        self.status_label.setText(tr("status_font_size", self.language, size=self.editor_font_size))
+        if persist:
+            self.settings.update_config({"editor_font_size": self.editor_font_size})
+
+    def increase_editor_font_size(self):
+        self._set_editor_font_size(self.editor.get_editor_font_size() + 1)
+
+    def decrease_editor_font_size(self):
+        self._set_editor_font_size(self.editor.get_editor_font_size() - 1)
+
+    def reset_editor_font_size(self):
+        self._set_editor_font_size(12)
+
+    def _on_editor_zoom_requested(self, delta):
+        self._set_editor_font_size(self.editor.get_editor_font_size() + delta)
 
     def apply_theme(self):
         """Apply UI and editor theme from external files."""
@@ -752,7 +804,9 @@ class BenchSimApp(QMainWindow):
             cfg = self.settings.get_config()
             self.language = normalize_lang(cfg.get("language", "en"))
             self.theme = cfg.get("theme", "dark")
+            self.editor_font_size = self._sanitize_font_size(cfg.get("editor_font_size", 12))
             self.apply_theme()
+            self._set_editor_font_size(self.editor_font_size, persist=False)
             self.apply_language()
 
     def maybe_check_updates_on_startup(self):
@@ -914,9 +968,11 @@ class BenchSimApp(QMainWindow):
         selected_tb = config.get("selected_tb", "") if config else ""
         self.language = normalize_lang(config.get("language", "en")) if config else self.language
         self.theme = config.get("theme", "dark") if config else self.theme
+        self.editor_font_size = self._sanitize_font_size(config.get("editor_font_size", 12)) if config else 12
 
         self.folder_entry.setText(folder_path)
         self._set_mode_value(project_mode)
+        self._set_editor_font_size(self.editor_font_size, persist=False)
         self._refresh_project(preserve_tb=selected_tb)
         if folder_path and os.path.isdir(folder_path):
             self.add_recent_project(folder_path)

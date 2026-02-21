@@ -6,7 +6,7 @@ import sys
 from pathlib import Path
 
 # pylint: disable=no-name-in-module
-from PyQt6.QtCore import QTimer, pyqtSignal
+from PyQt6.QtCore import QTimer, Qt, pyqtSignal
 from PyQt6.QtGui import QColor, QFont
 from PyQt6.Qsci import QsciAPIs, QsciLexerVerilog, QsciScintilla
 
@@ -15,6 +15,8 @@ class VerilogEditor(QsciScintilla):
     """A QScintilla-based code editor configured for Verilog syntax."""
 
     file_changed = pyqtSignal()
+    zoom_requested = pyqtSignal(int)
+    zoom_reset_requested = pyqtSignal()
     VERILOG_COMPLETIONS = {
         "always",
         "always_comb",
@@ -64,6 +66,8 @@ class VerilogEditor(QsciScintilla):
         "`ifndef",
         "`endif",
     }
+    MIN_FONT_SIZE = 8
+    MAX_FONT_SIZE = 36
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -75,7 +79,9 @@ class VerilogEditor(QsciScintilla):
             self.base_dir = Path(__file__).resolve().parent
 
         self.lexer = QsciLexerVerilog()
-        self.lexer.setFont(QFont("Consolas", 12))
+        self.font_family = "Consolas"
+        self.font_size = 12
+        self.lexer.setFont(QFont(self.font_family, self.font_size))
         self.setLexer(self.lexer)
 
         self.apis = QsciAPIs(self.lexer)
@@ -98,6 +104,7 @@ class VerilogEditor(QsciScintilla):
         self.setAutoCompletionSource(QsciScintilla.AutoCompletionSource.AcsAPIs)
         self.setAutoCompletionThreshold(2)
         self.setAutoCompletionCaseSensitivity(False)
+        self.set_editor_font_size(self.font_size)
 
         self.apply_theme("dark")
         self.textChanged.connect(self.trigger_change)
@@ -201,6 +208,56 @@ class VerilogEditor(QsciScintilla):
     def trigger_autocomplete(self):
         """Open completion popup at current caret."""
         self.autoCompleteFromAPIs()
+
+    def set_editor_font_size(self, size):
+        """Set editor and lexer font size with safe bounds."""
+        try:
+            value = int(size)
+        except (TypeError, ValueError):
+            value = self.font_size
+        value = max(self.MIN_FONT_SIZE, min(self.MAX_FONT_SIZE, value))
+
+        self.font_size = value
+        font = QFont(self.font_family, self.font_size)
+        self.setFont(font)
+        self.setMarginsFont(font)
+        self.lexer.setFont(font)
+        self.SendScintilla(QsciScintilla.SCI_SETZOOM, 0)
+        self.recolor()
+
+    def get_editor_font_size(self):
+        """Return current editor font size."""
+        return self.font_size
+
+    def wheelEvent(self, event):
+        """Handle Ctrl+wheel as managed font zoom to keep settings in sync."""
+        if event.modifiers() & Qt.KeyboardModifier.ControlModifier:
+            delta = event.angleDelta().y()
+            if delta > 0:
+                self.zoom_requested.emit(1)
+            elif delta < 0:
+                self.zoom_requested.emit(-1)
+            event.accept()
+            return
+        super().wheelEvent(event)
+
+    def keyPressEvent(self, event):
+        """Handle Ctrl zoom shortcuts in-editor and keep settings synchronized."""
+        if event.modifiers() & Qt.KeyboardModifier.ControlModifier:
+            key = event.key()
+            if key in (Qt.Key.Key_Plus, Qt.Key.Key_Equal):
+                self.zoom_requested.emit(1)
+                event.accept()
+                return
+            if key in (Qt.Key.Key_Minus, Qt.Key.Key_Underscore):
+                self.zoom_requested.emit(-1)
+                event.accept()
+                return
+            if key == Qt.Key.Key_0:
+                self.zoom_reset_requested.emit()
+                event.accept()
+                return
+        super().keyPressEvent(event)
 
     def find_text(self, query, *, forward=True, case_sensitive=False, whole_word=False, wrap=True):
         """Find text from current caret position."""

@@ -5,7 +5,7 @@ import webbrowser
 
 # pylint: disable=no-name-in-module
 from PyQt6.QtCore import QSize, Qt
-from PyQt6.QtGui import QColor, QIcon, QPainter
+from PyQt6.QtGui import QColor, QIcon, QPainter, QPalette
 from PyQt6.QtWidgets import (
     QCheckBox,
     QComboBox,
@@ -16,6 +16,7 @@ from PyQt6.QtWidgets import (
     QLineEdit,
     QMessageBox,
     QPushButton,
+    QSpinBox,
     QVBoxLayout,
 )
 
@@ -83,9 +84,18 @@ class ConfigDialog(QDialog):
         self.theme_combo.addItem("", "dark")
         self.theme_combo.addItem("", "light")
         self._set_theme_combo(self.theme)
+        self.theme_combo.currentIndexChanged.connect(self._on_theme_changed)
         self._refresh_theme_labels()
         layout.addWidget(theme_label)
         layout.addWidget(self.theme_combo)
+
+        font_size_label = QLabel(tr("config_editor_font_size", self.language))
+        self.editor_font_size_spin = QSpinBox()
+        self.editor_font_size_spin.setRange(8, 36)
+        self.editor_font_size_spin.setValue(12)
+        self._apply_font_spin_palette()
+        layout.addWidget(font_size_label)
+        layout.addWidget(self.editor_font_size_spin)
 
         self.update_auto_check = QCheckBox(tr("config_update_auto", self.language))
         self.update_auto_check.setChecked(cfg.get("update_auto_check", True))
@@ -124,6 +134,26 @@ class ConfigDialog(QDialog):
         self.theme_combo.setItemText(0, tr("theme_dark", active_lang))
         self.theme_combo.setItemText(1, tr("theme_light", active_lang))
 
+    def _apply_font_spin_palette(self):
+        """Keep native spinbox style while forcing readable foreground colors per theme."""
+        palette = self.editor_font_size_spin.palette()
+        if self.theme == "dark":
+            fg = QColor("#FFFFFF")
+            bg = QColor("#2B2B2B")
+        else:
+            fg = QColor("#111111")
+            bg = QColor("#FFFFFF")
+        palette.setColor(QPalette.ColorRole.Text, fg)
+        palette.setColor(QPalette.ColorRole.ButtonText, fg)
+        palette.setColor(QPalette.ColorRole.WindowText, fg)
+        palette.setColor(QPalette.ColorRole.Base, bg)
+        palette.setColor(QPalette.ColorRole.Button, bg)
+        self.editor_font_size_spin.setPalette(palette)
+
+    def _on_theme_changed(self):
+        self.theme = self.theme_combo.currentData() or "dark"
+        self._apply_font_spin_palette()
+
     def _browse_icon(self):
         icon = QIcon.fromTheme("folder-open")
         if icon.isNull():
@@ -159,6 +189,11 @@ class ConfigDialog(QDialog):
             self.gtkwave_entry.setText(config.get("gtkwave_path", ""))
             self._set_language_combo(normalize_lang(config.get("language", self.language)))
             self._set_theme_combo(config.get("theme", self.theme))
+            try:
+                font_size = int(config.get("editor_font_size", 12))
+            except (TypeError, ValueError):
+                font_size = 12
+            self.editor_font_size_spin.setValue(max(8, min(36, font_size)))
             self.update_auto_check.setChecked(config.get("update_auto_check", True))
             self.update_include_prerelease.setChecked(config.get("update_include_prerelease", False))
 
@@ -171,6 +206,7 @@ class ConfigDialog(QDialog):
                 "gtkwave_path": self.gtkwave_entry.text(),
                 "language": selected_language,
                 "theme": self.theme_combo.currentData() or "dark",
+                "editor_font_size": self.editor_font_size_spin.value(),
                 "update_auto_check": self.update_auto_check.isChecked(),
                 "update_include_prerelease": self.update_include_prerelease.isChecked(),
             }

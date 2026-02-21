@@ -80,6 +80,7 @@ QComboBox QAbstractItemView {
     selection-color: #0F172A;
 }
 
+
 QCheckBox {
     color: #1F2937;
     spacing: 8px;

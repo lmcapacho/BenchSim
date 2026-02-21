@@ -62,6 +62,7 @@ TRANSLATIONS = {
         "config_gtkwave": "GTKWave Path",
         "config_language": "Language",
         "config_theme": "Theme",
+        "config_editor_font_size": "Editor font size",
         "theme_dark": "Dark",
         "theme_light": "Light",
         "config_save": "Save",
@@ -119,6 +120,7 @@ TRANSLATIONS = {
             "Latest version: {latest}\n\n"
             "Open release page to download and install?"
         ),
+        "status_font_size": "Editor font size: {size}px",
     },
     "es": {
         "app_name": "BenchSim",
@@ -174,6 +176,7 @@ TRANSLATIONS = {
         "config_gtkwave": "Ruta de GTKWave",
         "config_language": "Idioma",
         "config_theme": "Tema",
+        "config_editor_font_size": "Tamaño de fuente del editor",
         "theme_dark": "Oscuro",
         "theme_light": "Claro",
         "config_save": "Guardar",
@@ -231,6 +234,7 @@ TRANSLATIONS = {
             "Última versión: {latest}\n\n"
             "¿Abrir la página de release para descargar e instalar?"
         ),
+        "status_font_size": "Tamaño de fuente del editor: {size}px",
     },
 }
 
