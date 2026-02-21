@@ -83,7 +83,8 @@ jobs:
       - name: Build Windows installer
         shell: powershell
         run: |
-          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "packaging\windows\BenchSim.iss"
+          $version = "${env:GITHUB_REF_NAME}".TrimStart("v")
+          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "/DAppVersion=$version" "packaging\windows\BenchSim.iss"
           $installer = Get-ChildItem "dist\installer\BenchSim-Setup-*.exe" | Select-Object -First 1
           if ($null -eq $installer) { throw "Installer not found." }
           $version = "${env:GITHUB_REF_NAME}"
