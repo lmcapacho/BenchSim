@@ -1,6 +1,7 @@
 """Provides a QThread-based class to run subprocess commands 
 asynchronously and emit their outputs."""
 import subprocess
+import sys
 
 # pylint: disable=no-name-in-module
 from PyQt6.QtCore import QThread, pyqtSignal
@@ -27,13 +28,23 @@ class ProcessRunner(QThread):
         """Start the subprocess, capture its output and errors, and emit signals for each line."""
         self.is_running = True
         use_shell = isinstance(self.command, str)
+        popen_kwargs = {
+            "shell": use_shell,
+            "cwd": self.cwd,
+            "stdout": subprocess.PIPE,
+            "stderr": subprocess.PIPE,
+            "text": True,
+        }
+
+        # Avoid opening a console window when launching GUI tools on Windows.
+        if sys.platform.startswith("win"):
+            creationflags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+            if creationflags:
+                popen_kwargs["creationflags"] = creationflags
+
         self.process = subprocess.Popen(
             self.command,
-            shell=use_shell,
-            cwd=self.cwd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True
+            **popen_kwargs
         )
 
         for line in self.process.stdout:
