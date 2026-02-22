@@ -996,17 +996,21 @@ class BenchSimApp(QMainWindow):
         target_file = self.current_tb_file
         backup_file = f"{target_file}.bak"
         temp_file = f"{target_file}.tmp"
+        content = self.editor.text()
+        # Recover files previously affected by CRLF double-conversion on Windows.
+        while "\r\r\n" in content:
+            content = content.replace("\r\r\n", "\r\n")
 
         # Keep a backup copy of the last saved version without removing the source file.
         if os.path.exists(target_file):
             with open(target_file, "r", encoding="utf-8") as src:
                 original_content = src.read()
-            with open(backup_file, "w", encoding="utf-8") as bak:
+            with open(backup_file, "w", encoding="utf-8", newline="") as bak:
                 bak.write(original_content)
 
         # Atomic save to avoid partial writes or stale content on refresh.
-        with open(temp_file, "w", encoding="utf-8") as file:
-            file.write(self.editor.text())
+        with open(temp_file, "w", encoding="utf-8", newline="") as file:
+            file.write(content)
             file.flush()
             os.fsync(file.fileno())
         os.replace(temp_file, target_file)
