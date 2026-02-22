@@ -11,6 +11,7 @@ dist/
 *.spec
 !packaging/pyinstaller/BenchSim.spec
 *.egg-info/
+benchsim/_version.py
 
 # Verilog simulation outputs
 *.out
