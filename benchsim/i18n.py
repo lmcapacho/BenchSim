@@ -13,6 +13,9 @@ TRANSLATIONS = {
         "status_clean": "No unsaved changes",
         "status_dirty": "Unsaved changes",
         "status_saved": "Changes saved",
+        "status_external_reloaded": "External changes detected and reloaded.",
+        "status_external_keep_local": "Keeping local edits. External changes will be overwritten on save.",
+        "status_external_pending": "External file change is pending resolution.",
         "btn_save": "Save",
         "btn_simulate": "Simulate",
         "btn_validate": "Validate",
@@ -127,12 +130,24 @@ TRANSLATIONS = {
         "update_launching_installer": "Launching installer. BenchSim will close now.",
         "update_manual_install_hint": "Open the downloaded package and complete installation manually.",
         "status_font_size": "Editor font size: {size}px",
+        "external_change_title": "External file change detected",
+        "external_change_body": (
+            "The testbench changed on disk from another application.\n\n"
+            "Choose how to proceed before saving or simulating."
+        ),
+        "external_change_banner": "File has changed on disk. Choose: reload external file or keep local edits.",
+        "external_change_reload": "Reload external",
+        "external_change_keep": "Keep local",
+        "external_change_cancel": "Cancel",
     },
     "es": {
         "app_name": "BenchSim",
         "status_clean": "Sin cambios",
         "status_dirty": "Cambios sin guardar",
         "status_saved": "Cambios guardados",
+        "status_external_reloaded": "Se detectaron cambios externos y se recargó el archivo.",
+        "status_external_keep_local": "Manteniendo cambios locales. Los externos se sobrescribirán al guardar.",
+        "status_external_pending": "Cambio externo pendiente por resolver.",
         "btn_save": "Guardar",
         "btn_simulate": "Simular",
         "btn_validate": "Validar",
@@ -247,6 +262,15 @@ TRANSLATIONS = {
         "update_launching_installer": "Iniciando instalador. BenchSim se cerrará ahora.",
         "update_manual_install_hint": "Abre el paquete descargado y completa la instalación manualmente.",
         "status_font_size": "Tamaño de fuente del editor: {size}px",
+        "external_change_title": "Cambio externo detectado",
+        "external_change_body": (
+            "El testbench cambió en disco desde otra aplicación.\n\n"
+            "Elige cómo continuar antes de guardar o simular."
+        ),
+        "external_change_banner": "El archivo cambió en disco. Elige: recargar archivo externo o mantener cambios locales.",
+        "external_change_reload": "Recargar externo",
+        "external_change_keep": "Mantener local",
+        "external_change_cancel": "Cancelar",
     },
 }
 

@@ -9,7 +9,7 @@ from pathlib import Path
 
 # pylint: disable=no-name-in-module
 from PyQt6.QtGui import QColor, QGuiApplication, QIcon, QKeySequence, QPainter, QPixmap, QShortcut
-from PyQt6.QtCore import QTimer, Qt
+from PyQt6.QtCore import QFileSystemWatcher, QTimer, Qt
 from PyQt6.QtWidgets import (
     QApplication,
     QCheckBox,
@@ -88,6 +88,11 @@ class BenchSimApp(QMainWindow):
         self.current_tb_file = None
         self.available_tb_files = []
         self.problem_index = {}
+        self.tb_watcher = QFileSystemWatcher(self)
+        self.tb_watcher.fileChanged.connect(self._on_tb_file_changed)
+        self.tb_disk_signature = None
+        self._internal_tb_save = False
+        self.external_change_pending = False
         self.base_dir = get_resource_base_dir()
 
         self.simulator = SimulationManager()
@@ -205,6 +210,24 @@ class BenchSimApp(QMainWindow):
         search_layout.addWidget(self.close_search_button)
         layout.addWidget(self.search_bar)
         self.search_bar.hide()
+
+        self.external_change_bar = QFrame()
+        self.external_change_bar.setObjectName("externalChangeBar")
+        self.external_change_bar.setVisible(False)
+        self.external_change_bar.setFrameShape(QFrame.Shape.NoFrame)
+        external_layout = QHBoxLayout(self.external_change_bar)
+        external_layout.setContentsMargins(8, 3, 8, 3)
+        external_layout.setSpacing(6)
+        self.external_change_label = QLabel("")
+        self.external_change_label.setWordWrap(True)
+        self.external_reload_button = QPushButton("")
+        self.external_reload_button.clicked.connect(self._reload_external_tb)
+        self.external_keep_button = QPushButton("")
+        self.external_keep_button.clicked.connect(self._keep_local_tb)
+        external_layout.addWidget(self.external_change_label, 1)
+        external_layout.addWidget(self.external_reload_button)
+        external_layout.addWidget(self.external_keep_button)
+        layout.addWidget(self.external_change_bar)
 
         layout.addSpacing(15)
 
@@ -350,8 +373,32 @@ class BenchSimApp(QMainWindow):
             theme_file = self.base_dir / "themes" / "dark.qss"
             self.theme = "dark"
         self.setStyleSheet(self.load_stylesheet(theme_file))
+        self._apply_external_change_bar_style()
         self._apply_toolbar_icons()
         self.editor.apply_theme(self.theme)
+
+    def _apply_external_change_bar_style(self):
+        """Apply theme-aware style for external-change banner."""
+        if self.theme == "dark":
+            bg = "#2A2414"
+            border = "#6E5A24"
+            text = "#F1E7CC"
+            btn_bg = "#3A321D"
+            btn_hover = "#4A4023"
+            btn_border = "#6E5A24"
+        else:
+            bg = "#FFF6DD"
+            border = "#D8BE7A"
+            text = "#4A3A13"
+            btn_bg = "#F8ECD0"
+            btn_hover = "#F2E2BA"
+            btn_border = "#D1B16B"
+        self.external_change_bar.setStyleSheet(
+            f"#externalChangeBar {{ background-color: {bg}; border: 1px solid {border}; border-radius: 2px; }}"
+            f"#externalChangeBar QLabel {{ color: {text}; border: none; }}"
+            f"#externalChangeBar QPushButton {{ background-color: {btn_bg}; border: 1px solid {btn_border}; padding: 3px 8px; }}"
+            f"#externalChangeBar QPushButton:hover {{ background-color: {btn_hover}; }}"
+        )
 
     def _apply_toolbar_icons(self):
         """Apply system icons and tweak contrast where needed."""
@@ -427,6 +474,9 @@ class BenchSimApp(QMainWindow):
         self.replace_button.setText(tr("editor_replace", self.language))
         self.replace_all_button.setText(tr("editor_replace_all", self.language))
         self.close_search_button.setToolTip(tr("editor_close_search", self.language))
+        self.external_change_label.setText(tr("external_change_banner", self.language))
+        self.external_reload_button.setText(tr("external_change_reload", self.language))
+        self.external_keep_button.setText(tr("external_change_keep", self.language))
         self.refresh_recent_projects()
         self.dispatcher.set_language(self.language)
 
@@ -552,8 +602,96 @@ class BenchSimApp(QMainWindow):
         with open(tb_path, "r", encoding="utf-8") as verilog_file:
             self.editor.set_text_safely(verilog_file.read())
         self.current_tb_file = tb_path
+        self.tb_disk_signature = self._file_signature(tb_path)
+        self._hide_external_change_banner()
+        self._watch_current_tb_file()
         self.status_label.setText(tr("status_saved", self.language))
         self.save_button.setEnabled(False)
+
+    @staticmethod
+    def _file_signature(file_path):
+        """Return mtime+size signature for external-change detection."""
+        try:
+            stat = os.stat(file_path)
+            return stat.st_mtime_ns, stat.st_size
+        except OSError:
+            return None
+
+    def _watch_current_tb_file(self):
+        """Attach watcher to active testbench file."""
+        watched = self.tb_watcher.files()
+        if watched:
+            self.tb_watcher.removePaths(watched)
+        if self.current_tb_file and os.path.isfile(self.current_tb_file):
+            self.tb_watcher.addPath(self.current_tb_file)
+
+    def _show_external_change_banner(self):
+        self.external_change_pending = True
+        self.external_change_bar.setVisible(True)
+        self.sim_button.setEnabled(False)
+        self.status_label.setText(tr("status_external_pending", self.language))
+
+    def _hide_external_change_banner(self):
+        self.external_change_pending = False
+        self.external_change_bar.setVisible(False)
+        self.sim_button.setEnabled(True)
+
+    def _reload_external_tb(self):
+        if not self.current_tb_file:
+            return
+        self._load_tb_file(self.current_tb_file)
+        self.status_label.setText(tr("status_external_reloaded", self.language))
+
+    def _keep_local_tb(self):
+        if not self.current_tb_file:
+            return
+        self.tb_disk_signature = self._file_signature(self.current_tb_file)
+        self._hide_external_change_banner()
+        self.status_label.setText(tr("status_external_keep_local", self.language))
+
+    def _detect_external_tb_change(self):
+        """Detect if testbench changed on disk since load/save."""
+        if not self.current_tb_file:
+            return False
+        disk_sig = self._file_signature(self.current_tb_file)
+        if disk_sig is None:
+            return False
+        if self.tb_disk_signature is None:
+            self.tb_disk_signature = disk_sig
+            return False
+        return disk_sig != self.tb_disk_signature
+
+    def _resolve_external_tb_change(self):
+        """Resolve external file modification with user confirmation."""
+        if not self.current_tb_file:
+            return False
+        self._show_external_change_banner()
+        return False
+
+    def _ensure_no_external_change_conflict(self):
+        """Guard save/simulate operations against silent overwrite."""
+        if self.external_change_pending:
+            self.status_label.setText(tr("status_external_pending", self.language))
+            self.external_change_bar.setVisible(True)
+            return False
+        if not self._detect_external_tb_change():
+            return True
+        return self._resolve_external_tb_change()
+
+    def _on_tb_file_changed(self, changed_path):
+        """React to external edits for currently loaded testbench."""
+        if self._internal_tb_save:
+            QTimer.singleShot(0, self._watch_current_tb_file)
+            return
+        if not self.current_tb_file:
+            return
+        if os.path.normcase(changed_path) != os.path.normcase(self.current_tb_file):
+            return
+        if not self._detect_external_tb_change():
+            QTimer.singleShot(0, self._watch_current_tb_file)
+            return
+        self._resolve_external_tb_change()
+        QTimer.singleShot(0, self._watch_current_tb_file)
 
     def _reset_problem_index(self):
         self.problem_index = {}
@@ -660,6 +798,9 @@ class BenchSimApp(QMainWindow):
             self.available_tb_files = []
             self.tb_combo.clear()
             self.current_tb_file = None
+            self.tb_disk_signature = None
+            self._hide_external_change_banner()
+            self._watch_current_tb_file()
             self.editor.set_text_safely("")
             return
 
@@ -769,6 +910,8 @@ class BenchSimApp(QMainWindow):
     def run_simulation(self):
         self.console.clear()
         self._reset_problem_index()
+        if not self._ensure_no_external_change_conflict():
+            return
         screen = QGuiApplication.primaryScreen()
         if screen is None:
             self.console.append(tr("error_no_screen", self.language))
@@ -992,6 +1135,8 @@ class BenchSimApp(QMainWindow):
     def save_tb_file(self):
         if not self.current_tb_file:
             return
+        if not self._ensure_no_external_change_conflict():
+            return
 
         target_file = self.current_tb_file
         backup_file = f"{target_file}.bak"
@@ -1009,11 +1154,18 @@ class BenchSimApp(QMainWindow):
                 bak.write(original_content)
 
         # Atomic save to avoid partial writes or stale content on refresh.
-        with open(temp_file, "w", encoding="utf-8", newline="") as file:
-            file.write(content)
-            file.flush()
-            os.fsync(file.fileno())
-        os.replace(temp_file, target_file)
+        self._internal_tb_save = True
+        try:
+            with open(temp_file, "w", encoding="utf-8", newline="") as file:
+                file.write(content)
+                file.flush()
+                os.fsync(file.fileno())
+            os.replace(temp_file, target_file)
+        finally:
+            self._internal_tb_save = False
+
+        self.tb_disk_signature = self._file_signature(target_file)
+        self._watch_current_tb_file()
 
         self.save_button.setEnabled(False)
         self.status_label.setText(tr("status_saved", self.language))
@@ -1041,6 +1193,9 @@ class BenchSimApp(QMainWindow):
 
     def closeEvent(self, event):
         """Close GTKWave process when the main window closes."""
+        watched = self.tb_watcher.files()
+        if watched:
+            self.tb_watcher.removePaths(watched)
         self.simulator.close_gtkwave()
         event.accept()
 
