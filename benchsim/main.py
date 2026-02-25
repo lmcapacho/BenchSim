@@ -40,7 +40,9 @@ try:
     from .settings_dialog import ConfigDialog
     from .settings_manager import SettingsManager
     from .simulation_manager import SimulationManager
+    from .project_load_controller import ProjectLoadController
     from .project_selection_controller import ProjectSelectionController
+    from .tb_file_controller import TBFileController
     from .updater import check_for_updates as check_updates_remote, get_current_version
 except ImportError:
     from benchsim.editor import VerilogEditor
@@ -51,7 +53,9 @@ except ImportError:
     from benchsim.settings_dialog import ConfigDialog
     from benchsim.settings_manager import SettingsManager
     from benchsim.simulation_manager import SimulationManager
+    from benchsim.project_load_controller import ProjectLoadController
     from benchsim.project_selection_controller import ProjectSelectionController
+    from benchsim.tb_file_controller import TBFileController
     from benchsim.updater import check_for_updates as check_updates_remote, get_current_version
 
 APP_NAME = "BenchSim"
@@ -267,6 +271,27 @@ class BenchSimApp(QMainWindow):
             translate=lambda key, **kwargs: tr(key, self.language, **kwargs),
             open_project_folder=self._open_project_folder_from_recent,
             get_current_tb_path=lambda: self.current_tb_file,
+        )
+        self.tb_file_controller = TBFileController(
+            editor=self.editor,
+            status_label=self.status_label,
+            save_button=self.save_button,
+            external_change_controller=self.external_change_controller,
+            on_hide_external_banner=self._hide_external_change_banner,
+        )
+        self.project_load_controller = ProjectLoadController(
+            simulator=self.simulator,
+            tb_combo=self.tb_combo,
+            folder_path_getter=lambda: self.folder_entry.text(),
+            mode_getter=lambda: self.project_selection_controller.current_mode(),
+            reset_problem_index=self._reset_problem_index,
+            clear_editor=lambda: self.editor.set_text_safely(""),
+            clear_external_change_state=self._clear_current_tb_state,
+            load_tb_file=self._load_tb_file,
+            select_tb_in_combo=self.project_selection_controller.select_tb_in_combo,
+            append_console=lambda msg: self.console.append(msg),
+            translate=tr,
+            language_getter=lambda: self.language,
         )
         self.console = QTextBrowser()
         self.console.setReadOnly(True)
@@ -518,15 +543,17 @@ class BenchSimApp(QMainWindow):
         self.project_selection_controller.select_tb_in_combo(tb_path)
 
     def _load_tb_file(self, tb_path):
-        if not tb_path or not os.path.isfile(tb_path):
-            return
-        with open(tb_path, "r", encoding="utf-8") as verilog_file:
-            self.editor.set_text_safely(verilog_file.read())
-        self.current_tb_file = tb_path
-        self.external_change_controller.set_current_tb_file(tb_path)
+        loaded = self.tb_file_controller.load_tb_file(
+            tb_path,
+            status_saved_text=tr("status_saved", self.language),
+        )
+        if loaded:
+            self.current_tb_file = tb_path
+
+    def _clear_current_tb_state(self):
+        self.current_tb_file = None
+        self.external_change_controller.clear_current_tb_file()
         self._hide_external_change_banner()
-        self.status_label.setText(tr("status_saved", self.language))
-        self.save_button.setEnabled(False)
 
     def _show_external_change_banner(self):
         self._on_external_conflict_pending_changed(True)
@@ -667,42 +694,7 @@ class BenchSimApp(QMainWindow):
         )
 
     def _refresh_project(self, preserve_tb=None):
-        self._reset_problem_index()
-        folder_path = self.folder_entry.text().strip()
-        if not folder_path or not os.path.isdir(folder_path):
-            self.available_tb_files = []
-            self.tb_combo.clear()
-            self.current_tb_file = None
-            self.external_change_controller.clear_current_tb_file()
-            self._hide_external_change_banner()
-            self.editor.set_text_safely("")
-            return
-
-        discovery = self.simulator.discover_project_files(
-            folder_path, mode=self.project_selection_controller.current_mode()
-        )
-        self.available_tb_files = discovery["tb_files"]
-
-        self.tb_combo.blockSignals(True)
-        self.tb_combo.clear()
-        for tb_file in self.available_tb_files:
-            self.tb_combo.addItem(os.path.basename(tb_file), tb_file)
-        self.tb_combo.blockSignals(False)
-
-        selected_tb = preserve_tb if preserve_tb in self.available_tb_files else discovery["preferred_tb"]
-        if selected_tb:
-            self.project_selection_controller.select_tb_in_combo(selected_tb)
-            self._load_tb_file(selected_tb)
-
-        self.console.append(
-            tr(
-                "project_loaded",
-                self.language,
-                mode=discovery["effective_mode"],
-                tb_count=len(self.available_tb_files),
-                source_count=len(discovery["source_files"]),
-            )
-        )
+        self.available_tb_files = self.project_load_controller.refresh_project(preserve_tb=preserve_tb)
 
     def refresh_recent_projects(self):
         self.project_selection_controller.refresh_recent_projects()
