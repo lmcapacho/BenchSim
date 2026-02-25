@@ -30,6 +30,7 @@ try:
     from .editor_search_controller import EditorSearchController
     from .external_change_controller import ExternalTBChangeController
     from .i18n import normalize_lang, tr
+    from .simulation_flow_controller import SimulationFlowController
     from .ui_theme_controller import UIThemeController
     from .update_controller import UpdateController
     from .message_dispatcher import MessageDispatcher
@@ -46,6 +47,7 @@ except ImportError:
     from benchsim.editor_search_controller import EditorSearchController
     from benchsim.external_change_controller import ExternalTBChangeController
     from benchsim.i18n import normalize_lang, tr
+    from benchsim.simulation_flow_controller import SimulationFlowController
     from benchsim.ui_theme_controller import UIThemeController
     from benchsim.update_controller import UpdateController
     from benchsim.message_dispatcher import MessageDispatcher
@@ -305,6 +307,22 @@ class BenchSimApp(QMainWindow):
         )
         self.update_controller = UpdateController(
             settings=self.settings,
+            translate=tr,
+            language_getter=lambda: self.language,
+        )
+        self.simulation_flow_controller = SimulationFlowController(
+            simulator=self.simulator,
+            dispatcher=self.dispatcher,
+            settings=self.settings,
+            project_selection=self.project_selection_controller,
+            folder_path_getter=lambda: self.folder_entry.text(),
+            reset_problem_index=self._reset_problem_index,
+            ensure_no_external_conflict=self._ensure_no_external_change_conflict,
+            save_tb_file=self.save_tb_file,
+            get_screen_geometry=self._primary_screen_geometry,
+            append_console=lambda msg: self.console.append(msg),
+            clear_console=self.console.clear,
+            append_problems=self._append_problems_to_console,
             translate=tr,
             language_getter=lambda: self.language,
         )
@@ -590,81 +608,17 @@ class BenchSimApp(QMainWindow):
         self.project_selection_controller.open_recent_project(index)
 
     def validate_project(self):
-        folder_path = self.folder_entry.text().strip()
-        self._reset_problem_index()
-        tb_path = self.project_selection_controller.selected_tb_path()
-        success, messages, plan = self.simulator.build_compile_plan(
-            folder=folder_path,
-            mode=self.project_selection_controller.current_mode(),
-            tb_file=tb_path,
-            require_tools=True,
-        )
-        for message in messages:
-            self.dispatcher.handle_message(message)
-        if not success:
-            return
-
-        self.console.clear()
-        self.console.append(tr("validation_preview_title", self.language))
-        self.console.append(
-            tr(
-                "validation_preview_meta",
-                self.language,
-                mode=plan["mode"],
-                tb=os.path.basename(plan["selected_tb"]) if plan["selected_tb"] else "N/A",
-                count=len(plan["compile_files"]),
-            )
-        )
-        for file_path in plan["compile_files"]:
-            self.console.append(file_path)
-
-        self.dispatcher.handle_message(
-            {
-                "type": "success",
-                "message": tr(
-                    "validation_success",
-                    self.language,
-                    mode=plan["mode"],
-                    tb=os.path.basename(plan["selected_tb"]) if plan["selected_tb"] else "N/A",
-                    count=len(plan["compile_files"]),
-                ),
-                "extras": ["toast"],
-            }
-        )
+        self.simulation_flow_controller.validate_project()
 
     def run_simulation(self):
-        self.console.clear()
-        self._reset_problem_index()
-        if not self._ensure_no_external_change_conflict():
-            return
+        self.simulation_flow_controller.run_simulation()
+
+    @staticmethod
+    def _primary_screen_geometry():
         screen = QGuiApplication.primaryScreen()
         if screen is None:
-            self.console.append(tr("error_no_screen", self.language))
-            return
-
-        self.save_tb_file()
-
-        folder_path = self.folder_entry.text().strip()
-        tb_path = self.project_selection_controller.selected_tb_path()
-        success, messages = self.simulator.run_simulation(
-            screen.availableGeometry(),
-            folder=folder_path,
-            mode=self.project_selection_controller.current_mode(),
-            tb_file=tb_path,
-        )
-        for message in messages:
-            self.dispatcher.handle_message(message)
-        self._append_problems_to_console(messages, folder_path)
-
-        if success:
-            self.settings.update_config(
-                {
-                    "verilog_folder": folder_path,
-                    "project_mode": self.project_selection_controller.current_mode(),
-                    "selected_tb": tb_path or "",
-                }
-            )
-            self.project_selection_controller.add_recent_project(folder_path)
+            return None
+        return screen.availableGeometry()
 
     def open_config_dialog(self):
         config_dialog = ConfigDialog(self)
