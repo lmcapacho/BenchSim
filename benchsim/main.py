@@ -40,6 +40,7 @@ try:
     from .settings_dialog import ConfigDialog
     from .settings_manager import SettingsManager
     from .simulation_manager import SimulationManager
+    from .project_selection_controller import ProjectSelectionController
     from .updater import check_for_updates as check_updates_remote, get_current_version
 except ImportError:
     from benchsim.editor import VerilogEditor
@@ -50,6 +51,7 @@ except ImportError:
     from benchsim.settings_dialog import ConfigDialog
     from benchsim.settings_manager import SettingsManager
     from benchsim.simulation_manager import SimulationManager
+    from benchsim.project_selection_controller import ProjectSelectionController
     from benchsim.updater import check_for_updates as check_updates_remote, get_current_version
 
 APP_NAME = "BenchSim"
@@ -257,7 +259,15 @@ class BenchSimApp(QMainWindow):
         )
         self.find_input.returnPressed.connect(lambda: self.search_controller.find_next())
         self.replace_input.returnPressed.connect(lambda: self.search_controller.replace_current())
-
+        self.project_selection_controller = ProjectSelectionController(
+            settings=self.settings,
+            mode_combo=self.mode_combo,
+            tb_combo=self.tb_combo,
+            recent_combo=self.recent_combo,
+            translate=lambda key, **kwargs: tr(key, self.language, **kwargs),
+            open_project_folder=self._open_project_folder_from_recent,
+            get_current_tb_path=lambda: self.current_tb_file,
+        )
         self.console = QTextBrowser()
         self.console.setReadOnly(True)
         self.console.setOpenLinks(False)
@@ -276,13 +286,17 @@ class BenchSimApp(QMainWindow):
         )
 
         self.load_config()
-        self.refresh_recent_projects()
+        self.project_selection_controller.refresh_recent_projects()
         self.apply_theme()
         self.apply_language()
         self.setup_shortcuts()
         self.editor.file_changed.connect(self.tb_changed)
         QTimer.singleShot(1200, self.maybe_check_updates_on_startup)
         QTimer.singleShot(1600, self.maybe_setup_linux_desktop_entry)
+
+    def _open_project_folder_from_recent(self, folder_path):
+        self.folder_entry.setText(folder_path)
+        self._refresh_project()
 
     @staticmethod
     def load_stylesheet(theme_path):
@@ -488,30 +502,20 @@ class BenchSimApp(QMainWindow):
         self.external_change_label.setText(tr("external_change_banner", self.language))
         self.external_reload_button.setText(tr("external_change_reload", self.language))
         self.external_keep_button.setText(tr("external_change_keep", self.language))
-        self.refresh_recent_projects()
+        self.project_selection_controller.refresh_recent_projects()
         self.dispatcher.set_language(self.language)
 
     def _set_mode_value(self, mode_value):
-        for index in range(self.mode_combo.count()):
-            if self.mode_combo.itemData(index) == mode_value:
-                self.mode_combo.setCurrentIndex(index)
-                return
+        self.project_selection_controller.set_mode_value(mode_value)
 
     def _current_mode(self):
-        return self.mode_combo.currentData()
+        return self.project_selection_controller.current_mode()
 
     def _selected_tb_path(self):
-        if self.tb_combo.currentIndex() < 0:
-            return None
-        return self.tb_combo.currentData()
+        return self.project_selection_controller.selected_tb_path()
 
     def _select_tb_in_combo(self, tb_path):
-        if not tb_path:
-            return
-        for index in range(self.tb_combo.count()):
-            if self.tb_combo.itemData(index) == tb_path:
-                self.tb_combo.setCurrentIndex(index)
-                return
+        self.project_selection_controller.select_tb_in_combo(tb_path)
 
     def _load_tb_file(self, tb_path):
         if not tb_path or not os.path.isfile(tb_path):
@@ -652,7 +656,7 @@ class BenchSimApp(QMainWindow):
 
         if file_path in self.available_tb_files:
             self._load_tb_file(file_path)
-            self._select_tb_in_combo(file_path)
+            self.project_selection_controller.select_tb_in_combo(file_path)
             self.editor.setCursorPosition(line, col)
             self.editor.ensureLineVisible(line)
             self.editor.setFocus()
@@ -674,7 +678,9 @@ class BenchSimApp(QMainWindow):
             self.editor.set_text_safely("")
             return
 
-        discovery = self.simulator.discover_project_files(folder_path, mode=self._current_mode())
+        discovery = self.simulator.discover_project_files(
+            folder_path, mode=self.project_selection_controller.current_mode()
+        )
         self.available_tb_files = discovery["tb_files"]
 
         self.tb_combo.blockSignals(True)
@@ -685,7 +691,7 @@ class BenchSimApp(QMainWindow):
 
         selected_tb = preserve_tb if preserve_tb in self.available_tb_files else discovery["preferred_tb"]
         if selected_tb:
-            self._select_tb_in_combo(selected_tb)
+            self.project_selection_controller.select_tb_in_combo(selected_tb)
             self._load_tb_file(selected_tb)
 
         self.console.append(
@@ -699,48 +705,21 @@ class BenchSimApp(QMainWindow):
         )
 
     def refresh_recent_projects(self):
-        self.settings.prune_missing_paths("recent_projects")
-        recent_items = self.settings.get_list("recent_projects")
-        self.recent_combo.blockSignals(True)
-        self.recent_combo.clear()
-        self.recent_combo.addItem(tr("recent_projects_placeholder", self.language), "")
-        for path in recent_items:
-            self.recent_combo.addItem(os.path.basename(path) or path, path)
-        self.recent_combo.setCurrentIndex(0)
-        self.recent_combo.blockSignals(False)
+        self.project_selection_controller.refresh_recent_projects()
 
     def add_recent_project(self, folder_path):
-        if not folder_path:
-            return
-        self.settings.push_recent("recent_projects", folder_path, limit=12, normalize=True)
-        self.refresh_recent_projects()
+        self.project_selection_controller.add_recent_project(folder_path)
 
     def open_recent_project(self, index):
-        if index <= 0:
-            return
-        folder_path = self.recent_combo.itemData(index)
-        if not folder_path or not os.path.isdir(folder_path):
-            self.refresh_recent_projects()
-            return
-
-        self.folder_entry.setText(folder_path)
-        self._refresh_project()
-        self.settings.update_config(
-            {
-                "verilog_folder": folder_path,
-                "project_mode": self._current_mode(),
-                "selected_tb": self.current_tb_file or "",
-            }
-        )
-        self.add_recent_project(folder_path)
+        self.project_selection_controller.open_recent_project(index)
 
     def validate_project(self):
         folder_path = self.folder_entry.text().strip()
         self._reset_problem_index()
-        tb_path = self._selected_tb_path()
+        tb_path = self.project_selection_controller.selected_tb_path()
         success, messages, plan = self.simulator.build_compile_plan(
             folder=folder_path,
-            mode=self._current_mode(),
+            mode=self.project_selection_controller.current_mode(),
             tb_file=tb_path,
             require_tools=True,
         )
@@ -790,11 +769,11 @@ class BenchSimApp(QMainWindow):
         self.save_tb_file()
 
         folder_path = self.folder_entry.text().strip()
-        tb_path = self._selected_tb_path()
+        tb_path = self.project_selection_controller.selected_tb_path()
         success, messages = self.simulator.run_simulation(
             screen.availableGeometry(),
             folder=folder_path,
-            mode=self._current_mode(),
+            mode=self.project_selection_controller.current_mode(),
             tb_file=tb_path,
         )
         for message in messages:
@@ -805,11 +784,11 @@ class BenchSimApp(QMainWindow):
             self.settings.update_config(
                 {
                     "verilog_folder": folder_path,
-                    "project_mode": self._current_mode(),
+                    "project_mode": self.project_selection_controller.current_mode(),
                     "selected_tb": tb_path or "",
                 }
             )
-            self.add_recent_project(folder_path)
+            self.project_selection_controller.add_recent_project(folder_path)
 
     def open_config_dialog(self):
         config_dialog = ConfigDialog(self)
@@ -984,17 +963,17 @@ class BenchSimApp(QMainWindow):
         self.editor_font_size = self._sanitize_font_size(config.get("editor_font_size", 12)) if config else 12
 
         self.folder_entry.setText(folder_path)
-        self._set_mode_value(project_mode)
+        self.project_selection_controller.set_mode_value(project_mode)
         self._set_editor_font_size(self.editor_font_size, persist=False)
         self._refresh_project(preserve_tb=selected_tb)
         if folder_path and os.path.isdir(folder_path):
-            self.add_recent_project(folder_path)
+            self.project_selection_controller.add_recent_project(folder_path)
 
     def reload_verilog_folder(self):
         self._refresh_project(preserve_tb=self.current_tb_file)
 
     def tb_selection_changed(self):
-        tb_path = self._selected_tb_path()
+        tb_path = self.project_selection_controller.selected_tb_path()
         if tb_path:
             self._load_tb_file(tb_path)
 
@@ -1055,11 +1034,11 @@ class BenchSimApp(QMainWindow):
         self.settings.update_config(
             {
                 "verilog_folder": folder_selected,
-                "project_mode": self._current_mode(),
+                "project_mode": self.project_selection_controller.current_mode(),
                 "selected_tb": self.current_tb_file or "",
             }
         )
-        self.add_recent_project(folder_selected)
+        self.project_selection_controller.add_recent_project(folder_selected)
 
     def closeEvent(self, event):
         """Close GTKWave process when the main window closes."""
