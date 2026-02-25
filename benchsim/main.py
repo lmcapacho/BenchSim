@@ -1,7 +1,5 @@
 """Main Qt application for Verilog simulation workflow."""
-import html
 import os
-import re
 import shutil
 import subprocess
 import sys
@@ -42,6 +40,7 @@ try:
     from .simulation_manager import SimulationManager
     from .project_load_controller import ProjectLoadController
     from .project_selection_controller import ProjectSelectionController
+    from .problems_controller import ProblemsController
     from .tb_file_controller import TBFileController
     from .updater import check_for_updates as check_updates_remote, get_current_version
 except ImportError:
@@ -55,6 +54,7 @@ except ImportError:
     from benchsim.simulation_manager import SimulationManager
     from benchsim.project_load_controller import ProjectLoadController
     from benchsim.project_selection_controller import ProjectSelectionController
+    from benchsim.problems_controller import ProblemsController
     from benchsim.tb_file_controller import TBFileController
     from benchsim.updater import check_for_updates as check_updates_remote, get_current_version
 
@@ -97,7 +97,6 @@ class BenchSimApp(QMainWindow):
         super().__init__()
         self.current_tb_file = None
         self.available_tb_files = []
-        self.problem_index = {}
         self.external_change_controller = ExternalTBChangeController(self)
         self.external_change_controller.pending_changed.connect(self._on_external_conflict_pending_changed)
         self.external_change_pending = False
@@ -279,6 +278,13 @@ class BenchSimApp(QMainWindow):
             external_change_controller=self.external_change_controller,
             on_hide_external_banner=self._hide_external_change_banner,
         )
+        self.console = QTextBrowser()
+        self.console.setReadOnly(True)
+        self.console.setOpenLinks(False)
+        self.console.setOpenExternalLinks(False)
+        self.console.anchorClicked.connect(self._handle_console_link)
+        layout.addWidget(self.console, 1)
+
         self.project_load_controller = ProjectLoadController(
             simulator=self.simulator,
             tb_combo=self.tb_combo,
@@ -293,12 +299,11 @@ class BenchSimApp(QMainWindow):
             translate=tr,
             language_getter=lambda: self.language,
         )
-        self.console = QTextBrowser()
-        self.console.setReadOnly(True)
-        self.console.setOpenLinks(False)
-        self.console.setOpenExternalLinks(False)
-        self.console.anchorClicked.connect(self._handle_console_link)
-        layout.addWidget(self.console, 1)
+        self.problems_controller = ProblemsController(
+            console_widget=self.console,
+            translate=tr,
+            language_getter=lambda: self.language,
+        )
 
         central_widget.setLayout(layout)
 
@@ -596,71 +601,13 @@ class BenchSimApp(QMainWindow):
         return ok
 
     def _reset_problem_index(self):
-        self.problem_index = {}
-
-    def _parse_problems_from_stderr(self, stderr_text, folder_path):
-        if not stderr_text:
-            return []
-
-        problems = []
-        pattern = re.compile(r"^(?P<file>[^:\n]+):(?P<line>\d+)(?::(?P<col>\d+))?:\s*(?P<msg>.+)$")
-        for raw_line in stderr_text.splitlines():
-            line = raw_line.strip()
-            match = pattern.match(line)
-            if not match:
-                continue
-
-            file_token = match.group("file").strip().strip("\"'`")
-            line_number = int(match.group("line"))
-            col_value = match.group("col")
-            column_number = int(col_value) if col_value else 1
-            message = match.group("msg").strip()
-
-            file_path = Path(file_token)
-            if not file_path.is_absolute():
-                file_path = Path(folder_path) / file_path
-
-            problems.append(
-                {
-                    "file": str(file_path.resolve()),
-                    "line": line_number,
-                    "col": column_number,
-                    "message": message,
-                }
-            )
-        return problems
+        self.problems_controller.reset()
 
     def _append_problems_to_console(self, messages, folder_path):
-        all_problems = []
-        for message in messages:
-            data = message.get("data", {})
-            stderr_text = data.get("stderr", "")
-            if not stderr_text:
-                continue
-            all_problems.extend(self._parse_problems_from_stderr(stderr_text, folder_path))
-
-        if not all_problems:
-            return
-
-        self.console.append(
-            f"<b>{tr('problems_count', self.language, count=len(all_problems))}</b>"
-        )
-        for index, problem in enumerate(all_problems, start=1):
-            token = f"p{index}"
-            self.problem_index[token] = problem
-            location = (
-                f"{html.escape(os.path.basename(problem['file']))}:"
-                f"{problem['line']}:{problem['col']}"
-            )
-            message = html.escape(problem["message"])
-            self.console.append(f'<a href="problem://{token}">{location}</a>  {message}')
+        self.problems_controller.append_problems(messages, folder_path)
 
     def _handle_console_link(self, url):
-        raw = url.toString()
-        if not raw.startswith("problem://"):
-            return
-        token = raw.replace("problem://", "", 1)
-        problem = self.problem_index.get(token)
+        problem = self.problems_controller.resolve_link(url.toString())
         if not problem:
             return
 
@@ -689,9 +636,7 @@ class BenchSimApp(QMainWindow):
             self.editor.setFocus()
             return
 
-        self.console.append(
-            tr("problems_jump_unavailable", self.language, file=os.path.basename(file_path))
-        )
+        self.problems_controller.append_jump_unavailable(file_path)
 
     def _refresh_project(self, preserve_tb=None):
         self.available_tb_files = self.project_load_controller.refresh_project(preserve_tb=preserve_tb)
