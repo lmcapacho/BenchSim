@@ -4,7 +4,7 @@ import sys
 from pathlib import Path
 
 # pylint: disable=no-name-in-module
-from PyQt6.QtGui import QColor, QGuiApplication, QIcon, QKeySequence, QPainter, QPixmap, QShortcut
+from PyQt6.QtGui import QGuiApplication, QIcon, QKeySequence, QShortcut
 from PyQt6.QtCore import QTimer, Qt
 from PyQt6.QtWidgets import (
     QApplication,
@@ -23,7 +23,6 @@ from PyQt6.QtWidgets import (
     QToolButton,
     QVBoxLayout,
     QWidget,
-    QStyle,
 )
 
 try:
@@ -31,6 +30,7 @@ try:
     from .editor_search_controller import EditorSearchController
     from .external_change_controller import ExternalTBChangeController
     from .i18n import normalize_lang, tr
+    from .ui_theme_controller import UIThemeController
     from .update_controller import UpdateController
     from .message_dispatcher import MessageDispatcher
     from .linux_desktop_controller import LinuxDesktopController
@@ -46,6 +46,7 @@ except ImportError:
     from benchsim.editor_search_controller import EditorSearchController
     from benchsim.external_change_controller import ExternalTBChangeController
     from benchsim.i18n import normalize_lang, tr
+    from benchsim.ui_theme_controller import UIThemeController
     from benchsim.update_controller import UpdateController
     from benchsim.message_dispatcher import MessageDispatcher
     from benchsim.linux_desktop_controller import LinuxDesktopController
@@ -77,17 +78,6 @@ def get_app_icon(base_dir):
         if candidate.is_file():
             return QIcon(str(candidate))
     return QIcon()
-
-
-def get_tool_icon(widget, theme_name, fallback_icon):
-    """Return icon and whether fallback icon was used."""
-    icon = QIcon.fromTheme(theme_name)
-    used_fallback = False
-    if icon.isNull():
-        icon = widget.style().standardIcon(fallback_icon)
-        used_fallback = True
-    return icon, used_fallback
-
 
 class BenchSimApp(QMainWindow):
     """Main application window."""
@@ -318,6 +308,17 @@ class BenchSimApp(QMainWindow):
             translate=tr,
             language_getter=lambda: self.language,
         )
+        self.ui_theme_controller = UIThemeController(
+            widget=self,
+            base_dir=self.base_dir,
+            load_stylesheet=self.load_stylesheet,
+            editor=self.editor,
+            external_change_bar=self.external_change_bar,
+            folder_button=self.folder_button,
+            reload_button=self.reload_button,
+            validate_tool_button=self.validate_tool_button,
+            config_button=self.config_button,
+        )
         self.linux_desktop_controller = LinuxDesktopController(
             settings=self.settings,
             base_dir=self.base_dir,
@@ -443,80 +444,7 @@ class BenchSimApp(QMainWindow):
         self._set_editor_font_size(self.editor.get_editor_font_size() + delta)
 
     def apply_theme(self):
-        """Apply UI and editor theme from external files."""
-        theme_file = self.base_dir / "themes" / f"{self.theme}.qss"
-        if not theme_file.is_file():
-            theme_file = self.base_dir / "themes" / "dark.qss"
-            self.theme = "dark"
-        self.setStyleSheet(self.load_stylesheet(theme_file))
-        self._apply_external_change_bar_style()
-        self._apply_toolbar_icons()
-        self.editor.apply_theme(self.theme)
-
-    def _apply_external_change_bar_style(self):
-        """Apply theme-aware style for external-change banner."""
-        if self.theme == "dark":
-            bg = "#2A2414"
-            border = "#6E5A24"
-            text = "#F1E7CC"
-            btn_bg = "#3A321D"
-            btn_hover = "#4A4023"
-            btn_border = "#6E5A24"
-        else:
-            bg = "#FFF6DD"
-            border = "#D8BE7A"
-            text = "#4A3A13"
-            btn_bg = "#F8ECD0"
-            btn_hover = "#F2E2BA"
-            btn_border = "#D1B16B"
-        self.external_change_bar.setStyleSheet(
-            f"#externalChangeBar {{ background-color: {bg}; border: 1px solid {border}; border-radius: 2px; }}"
-            f"#externalChangeBar QLabel {{ color: {text}; border: none; }}"
-            f"#externalChangeBar QPushButton {{ background-color: {btn_bg}; border: 1px solid {btn_border}; padding: 3px 8px; }}"
-            f"#externalChangeBar QPushButton:hover {{ background-color: {btn_hover}; }}"
-        )
-
-    def _apply_toolbar_icons(self):
-        """Apply system icons and tweak contrast where needed."""
-        tint_color = QColor("#E4E4E4")
-        # Detect Windows dark mode behavior by active app theme.
-        on_windows_dark = sys.platform.startswith("win") and self.theme == "dark"
-
-        buttons = [
-            (self.folder_button, "folder-open", QStyle.StandardPixmap.SP_DirOpenIcon),
-            (self.reload_button, "view-refresh", QStyle.StandardPixmap.SP_BrowserReload),
-            (self.validate_tool_button, "dialog-ok-apply", QStyle.StandardPixmap.SP_DialogYesButton),
-        ]
-        for button, name, standard in buttons:
-            icon, _fallback = get_tool_icon(self, name, standard)
-            if on_windows_dark and not icon.isNull():
-                icon = self._tint_icon(icon, tint_color)
-            button.setIcon(icon)
-
-        icon, fallback = get_tool_icon(self, "settings", QStyle.StandardPixmap.SP_FileDialogDetailedView)
-        if fallback:
-            alt = QIcon.fromTheme("preferences-system")
-            if not alt.isNull():
-                icon = alt
-        if on_windows_dark and not icon.isNull():
-            icon = self._tint_icon(icon, tint_color)
-        self.config_button.setIcon(icon)
-
-    @staticmethod
-    def _tint_icon(icon, color):
-        """Tint icon for dark backgrounds when fallback icon is too dark."""
-        tinted = QIcon()
-        for size in (16, 20, 24, 32):
-            src = icon.pixmap(size, size)
-            if src.isNull():
-                continue
-            dst = src.copy()
-            painter = QPainter(dst)
-            painter.setCompositionMode(QPainter.CompositionMode.CompositionMode_SourceIn)
-            painter.fillRect(dst.rect(), color)
-            painter.end()
-            tinted.addPixmap(dst)
-        return tinted if not tinted.isNull() else icon
+        self.theme = self.ui_theme_controller.apply_theme(self.theme)
 
     def apply_language(self):
         self.setWindowTitle(tr("app_name", self.language))
