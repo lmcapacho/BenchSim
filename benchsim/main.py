@@ -16,7 +16,6 @@ from PyQt6.QtWidgets import (
     QLabel,
     QLineEdit,
     QMainWindow,
-    QMessageBox,
     QPushButton,
     QSizePolicy,
     QStatusBar,
@@ -32,6 +31,7 @@ try:
     from .editor_search_controller import EditorSearchController
     from .external_change_controller import ExternalTBChangeController
     from .i18n import normalize_lang, tr
+    from .update_controller import UpdateController
     from .message_dispatcher import MessageDispatcher
     from .linux_desktop_controller import LinuxDesktopController
     from .settings_dialog import ConfigDialog
@@ -41,12 +41,12 @@ try:
     from .project_selection_controller import ProjectSelectionController
     from .problems_controller import ProblemsController
     from .tb_file_controller import TBFileController
-    from .updater import check_for_updates as check_updates_remote, get_current_version
 except ImportError:
     from benchsim.editor import VerilogEditor
     from benchsim.editor_search_controller import EditorSearchController
     from benchsim.external_change_controller import ExternalTBChangeController
     from benchsim.i18n import normalize_lang, tr
+    from benchsim.update_controller import UpdateController
     from benchsim.message_dispatcher import MessageDispatcher
     from benchsim.linux_desktop_controller import LinuxDesktopController
     from benchsim.settings_dialog import ConfigDialog
@@ -56,7 +56,6 @@ except ImportError:
     from benchsim.project_selection_controller import ProjectSelectionController
     from benchsim.problems_controller import ProblemsController
     from benchsim.tb_file_controller import TBFileController
-    from benchsim.updater import check_for_updates as check_updates_remote, get_current_version
 
 APP_NAME = "BenchSim"
 
@@ -313,6 +312,11 @@ class BenchSimApp(QMainWindow):
             language=self.language,
             popup_on={"error": True, "warning": False, "success": False, "log": False},
             toast_on={"error": False, "warning": True, "success": True, "log": False},
+        )
+        self.update_controller = UpdateController(
+            settings=self.settings,
+            translate=tr,
+            language_getter=lambda: self.language,
         )
         self.linux_desktop_controller = LinuxDesktopController(
             settings=self.settings,
@@ -746,49 +750,13 @@ class BenchSimApp(QMainWindow):
             self.apply_language()
 
     def maybe_check_updates_on_startup(self):
-        """Check for updates when enabled in settings."""
-        cfg = self.settings.get_config()
-        if not cfg.get("update_auto_check", True):
-            return
-        self.check_for_updates(silent_errors=True)
+        self.update_controller.maybe_check_updates_on_startup(self)
 
     def maybe_setup_linux_desktop_entry(self):
         self.linux_desktop_controller.maybe_setup_linux_desktop_entry(self)
 
     def check_for_updates(self, silent_errors=False):
-        """Check GitHub releases and prompt user when an update is available."""
-        cfg = self.settings.get_config()
-        include_prerelease = cfg.get("update_include_prerelease", False)
-        result = check_updates_remote(
-            current_version=get_current_version(),
-            include_prerelease=include_prerelease,
-        )
-
-        if not result.get("ok"):
-            if not silent_errors:
-                QMessageBox.warning(
-                    self,
-                    tr("popup_warning_title", self.language),
-                    tr("update_check_failed", self.language, error=result.get("error", "unknown")),
-                )
-            return
-
-        if not result.get("update_available"):
-            return
-
-        answer = QMessageBox.question(
-            self,
-            tr("update_available_title", self.language),
-            tr(
-                "update_available_body",
-                self.language,
-                current=result.get("current_version", "?"),
-                latest=result.get("latest_version", "?"),
-            ),
-        )
-        if answer == QMessageBox.StandardButton.Yes:
-            import webbrowser  # Local import to avoid startup overhead.
-            webbrowser.open(result.get("release_url", ""))
+        self.update_controller.check_for_updates(self, silent_errors=silent_errors)
 
     def load_config(self):
         config = self.settings.get_config()
