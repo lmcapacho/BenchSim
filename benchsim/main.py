@@ -1,5 +1,4 @@
 """Main Qt application for Verilog simulation workflow."""
-import os
 import sys
 from pathlib import Path
 
@@ -39,6 +38,7 @@ try:
     from .settings_manager import SettingsManager
     from .simulation_manager import SimulationManager
     from .project_load_controller import ProjectLoadController
+    from .project_state_controller import ProjectStateController
     from .project_selection_controller import ProjectSelectionController
     from .problems_controller import ProblemsController
     from .tb_file_controller import TBFileController
@@ -57,6 +57,7 @@ except ImportError:
     from benchsim.settings_manager import SettingsManager
     from benchsim.simulation_manager import SimulationManager
     from benchsim.project_load_controller import ProjectLoadController
+    from benchsim.project_state_controller import ProjectStateController
     from benchsim.project_selection_controller import ProjectSelectionController
     from benchsim.problems_controller import ProblemsController
     from benchsim.tb_file_controller import TBFileController
@@ -300,6 +301,20 @@ class BenchSimApp(QMainWindow):
             append_console=lambda msg: self.console.append(msg),
             translate=tr,
             language_getter=lambda: self.language,
+        )
+        self.project_state_controller = ProjectStateController(
+            settings=self.settings,
+            normalize_language=normalize_lang,
+            sanitize_font_size=self._sanitize_font_size,
+            folder_path_getter=lambda: self.folder_entry.text(),
+            current_mode_getter=lambda: self.project_selection_controller.current_mode(),
+            current_tb_getter=lambda: self.current_tb_file,
+            set_runtime_state=self._set_runtime_state,
+            set_folder_text=self.folder_entry.setText,
+            set_mode_value=self.project_selection_controller.set_mode_value,
+            set_editor_font_size=self._set_editor_font_size,
+            refresh_project=self._refresh_project,
+            add_recent_project=self.project_selection_controller.add_recent_project,
         )
         self.problems_controller = ProblemsController(
             console_widget=self.console,
@@ -651,21 +666,17 @@ class BenchSimApp(QMainWindow):
     def check_for_updates(self, silent_errors=False):
         self.update_controller.check_for_updates(self, silent_errors=silent_errors)
 
-    def load_config(self):
-        config = self.settings.get_config()
-        folder_path = config.get("verilog_folder", "") if config else ""
-        project_mode = config.get("project_mode", "auto") if config else "auto"
-        selected_tb = config.get("selected_tb", "") if config else ""
-        self.language = normalize_lang(config.get("language", "en")) if config else self.language
-        self.theme = config.get("theme", "dark") if config else self.theme
-        self.editor_font_size = self._sanitize_font_size(config.get("editor_font_size", 12)) if config else 12
+    def _set_runtime_state(self, language, theme, editor_font_size):
+        self.language = language
+        self.theme = theme
+        self.editor_font_size = editor_font_size
 
-        self.folder_entry.setText(folder_path)
-        self.project_selection_controller.set_mode_value(project_mode)
-        self._set_editor_font_size(self.editor_font_size, persist=False)
-        self._refresh_project(preserve_tb=selected_tb)
-        if folder_path and os.path.isdir(folder_path):
-            self.project_selection_controller.add_recent_project(folder_path)
+    def load_config(self):
+        self.project_state_controller.load_config(
+            default_language=self.language,
+            default_theme=self.theme,
+            default_font_size=12,
+        )
 
     def reload_verilog_folder(self):
         self._refresh_project(preserve_tb=self.current_tb_file)
@@ -687,7 +698,7 @@ class BenchSimApp(QMainWindow):
         self.tb_save_controller.save_tb_file(self.current_tb_file)
 
     def select_folder(self):
-        default_dir = self.folder_entry.text() or os.path.expanduser("~")
+        default_dir = self.project_state_controller.current_folder_or_home()
         folder_selected = QFileDialog.getExistingDirectory(
             self,
             tr("dialog_select_folder", self.language),
@@ -696,16 +707,7 @@ class BenchSimApp(QMainWindow):
         if not folder_selected:
             return
 
-        self.folder_entry.setText(folder_selected)
-        self._refresh_project()
-        self.settings.update_config(
-            {
-                "verilog_folder": folder_selected,
-                "project_mode": self.project_selection_controller.current_mode(),
-                "selected_tb": self.current_tb_file or "",
-            }
-        )
-        self.project_selection_controller.add_recent_project(folder_selected)
+        self.project_state_controller.persist_selected_folder(folder_selected)
 
     def closeEvent(self, event):
         """Close GTKWave process when the main window closes."""
