@@ -42,6 +42,7 @@ try:
     from .project_selection_controller import ProjectSelectionController
     from .problems_controller import ProblemsController
     from .tb_file_controller import TBFileController
+    from .tb_save_controller import TBSaveController
 except ImportError:
     from benchsim.editor import VerilogEditor
     from benchsim.editor_search_controller import EditorSearchController
@@ -59,6 +60,7 @@ except ImportError:
     from benchsim.project_selection_controller import ProjectSelectionController
     from benchsim.problems_controller import ProblemsController
     from benchsim.tb_file_controller import TBFileController
+    from benchsim.tb_save_controller import TBSaveController
 
 APP_NAME = "BenchSim"
 
@@ -268,6 +270,15 @@ class BenchSimApp(QMainWindow):
             save_button=self.save_button,
             external_change_controller=self.external_change_controller,
             on_hide_external_banner=self._hide_external_change_banner,
+        )
+        self.tb_save_controller = TBSaveController(
+            editor=self.editor,
+            external_change_controller=self.external_change_controller,
+            hide_external_change_banner=self._hide_external_change_banner,
+            set_save_button_enabled=self.save_button.setEnabled,
+            set_status_text=self.status_label.setText,
+            translate=tr,
+            language_getter=lambda: self.language,
         )
         self.console = QTextBrowser()
         self.console.setReadOnly(True)
@@ -673,38 +684,7 @@ class BenchSimApp(QMainWindow):
             return
         if not self._ensure_no_external_change_conflict():
             return
-
-        target_file = self.current_tb_file
-        backup_file = f"{target_file}.bak"
-        temp_file = f"{target_file}.tmp"
-        content = self.editor.text()
-        # Recover files previously affected by CRLF double-conversion on Windows.
-        while "\r\r\n" in content:
-            content = content.replace("\r\r\n", "\r\n")
-
-        # Keep a backup copy of the last saved version without removing the source file.
-        if os.path.exists(target_file):
-            with open(target_file, "r", encoding="utf-8") as src:
-                original_content = src.read()
-            with open(backup_file, "w", encoding="utf-8", newline="") as bak:
-                bak.write(original_content)
-
-        # Atomic save to avoid partial writes or stale content on refresh.
-        self.external_change_controller.begin_internal_save()
-        try:
-            with open(temp_file, "w", encoding="utf-8", newline="") as file:
-                file.write(content)
-                file.flush()
-                os.fsync(file.fileno())
-            os.replace(temp_file, target_file)
-        finally:
-            self.external_change_controller.end_internal_save()
-
-        self.external_change_controller.sync_after_save()
-        self._hide_external_change_banner()
-
-        self.save_button.setEnabled(False)
-        self.status_label.setText(tr("status_saved", self.language))
+        self.tb_save_controller.save_tb_file(self.current_tb_file)
 
     def select_folder(self):
         default_dir = self.folder_entry.text() or os.path.expanduser("~")
