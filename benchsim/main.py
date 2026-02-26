@@ -25,6 +25,7 @@ from PyQt6.QtWidgets import (
 )
 
 try:
+    from .config_dialog_controller import ConfigDialogController
     from .editor import VerilogEditor
     from .editor_search_controller import EditorSearchController
     from .external_change_controller import ExternalTBChangeController
@@ -44,6 +45,7 @@ try:
     from .tb_file_controller import TBFileController
     from .tb_save_controller import TBSaveController
 except ImportError:
+    from benchsim.config_dialog_controller import ConfigDialogController
     from benchsim.editor import VerilogEditor
     from benchsim.editor_search_controller import EditorSearchController
     from benchsim.external_change_controller import ExternalTBChangeController
@@ -315,6 +317,16 @@ class BenchSimApp(QMainWindow):
             set_editor_font_size=self._set_editor_font_size,
             refresh_project=self._refresh_project,
             add_recent_project=self.project_selection_controller.add_recent_project,
+        )
+        self.config_dialog_controller = ConfigDialogController(
+            settings=self.settings,
+            dialog_class=ConfigDialog,
+            normalize_language=normalize_lang,
+            sanitize_font_size=self._sanitize_font_size,
+            set_runtime_state=self._set_runtime_state,
+            apply_theme=self.apply_theme,
+            set_editor_font_size=self._set_editor_font_size,
+            apply_language=self.apply_language,
         )
         self.problems_controller = ProblemsController(
             console_widget=self.console,
@@ -647,15 +659,7 @@ class BenchSimApp(QMainWindow):
         return screen.availableGeometry()
 
     def open_config_dialog(self):
-        config_dialog = ConfigDialog(self)
-        if config_dialog.exec():
-            cfg = self.settings.get_config()
-            self.language = normalize_lang(cfg.get("language", "en"))
-            self.theme = cfg.get("theme", "dark")
-            self.editor_font_size = self._sanitize_font_size(cfg.get("editor_font_size", 12))
-            self.apply_theme()
-            self._set_editor_font_size(self.editor_font_size, persist=False)
-            self.apply_language()
+        self.config_dialog_controller.open_config_dialog(self)
 
     def maybe_check_updates_on_startup(self):
         self.update_controller.maybe_check_updates_on_startup(self)
