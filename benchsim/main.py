@@ -530,18 +530,6 @@ class BenchSimApp(QMainWindow):
         self.project_selection_controller.refresh_recent_projects()
         self.dispatcher.set_language(self.language)
 
-    def _set_mode_value(self, mode_value):
-        self.project_selection_controller.set_mode_value(mode_value)
-
-    def _current_mode(self):
-        return self.project_selection_controller.current_mode()
-
-    def _selected_tb_path(self):
-        return self.project_selection_controller.selected_tb_path()
-
-    def _select_tb_in_combo(self, tb_path):
-        self.project_selection_controller.select_tb_in_combo(tb_path)
-
     def _load_tb_file(self, tb_path):
         loaded = self.tb_file_controller.load_tb_file(
             tb_path,
@@ -635,15 +623,6 @@ class BenchSimApp(QMainWindow):
 
     def _refresh_project(self, preserve_tb=None):
         self.available_tb_files = self.project_load_controller.refresh_project(preserve_tb=preserve_tb)
-
-    def refresh_recent_projects(self):
-        self.project_selection_controller.refresh_recent_projects()
-
-    def add_recent_project(self, folder_path):
-        self.project_selection_controller.add_recent_project(folder_path)
-
-    def open_recent_project(self, index):
-        self.project_selection_controller.open_recent_project(index)
 
     def validate_project(self):
         self.simulation_flow_controller.validate_project()
