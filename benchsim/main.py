@@ -148,7 +148,9 @@ class BenchSimApp(QMainWindow):
 
         self.recent_combo = QComboBox()
         self.recent_combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToContents)
-        self.recent_combo.currentIndexChanged.connect(self.open_recent_project)
+        self.recent_combo.currentIndexChanged.connect(
+            lambda index: self.project_selection_controller.open_recent_project(index)
+        )
 
         self.folder_button = QToolButton()
         self.folder_button.clicked.connect(self.select_folder)

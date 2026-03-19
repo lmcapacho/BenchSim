@@ -7,7 +7,7 @@ from pathlib import Path
 
 # pylint: disable=no-name-in-module
 from PyQt6.QtCore import QTimer, Qt, pyqtSignal
-from PyQt6.QtGui import QColor, QFont
+from PyQt6.QtGui import QColor, QFont, QGuiApplication
 from PyQt6.Qsci import QsciAPIs, QsciLexerVerilog, QsciScintilla
 
 
@@ -229,14 +229,31 @@ class VerilogEditor(QsciScintilla):
         """Return current editor font size."""
         return self.font_size
 
+    @staticmethod
+    def _wheel_zoom_step(event):
+        """Return normalized zoom step from wheel/trackpad events."""
+        angle_delta = event.angleDelta().y()
+        if angle_delta > 0:
+            return 1
+        if angle_delta < 0:
+            return -1
+
+        pixel_delta = event.pixelDelta().y()
+        if pixel_delta > 0:
+            return 1
+        if pixel_delta < 0:
+            return -1
+        return 0
+
     def wheelEvent(self, event):
         """Handle Ctrl+wheel as managed font zoom to keep settings in sync."""
-        if event.modifiers() & Qt.KeyboardModifier.ControlModifier:
-            delta = event.angleDelta().y()
-            if delta > 0:
-                self.zoom_requested.emit(1)
-            elif delta < 0:
-                self.zoom_requested.emit(-1)
+        modifiers = event.modifiers() | QGuiApplication.keyboardModifiers()
+        if modifiers & Qt.KeyboardModifier.ControlModifier:
+            step = self._wheel_zoom_step(event)
+            if step:
+                self.zoom_requested.emit(step)
+                event.accept()
+                return
             event.accept()
             return
         super().wheelEvent(event)
