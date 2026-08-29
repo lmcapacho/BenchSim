@@ -116,4 +116,3 @@ class SimulationFlowController:
                     "selected_tb": tb_path or "",
                 }
             )
-            self.project_selection.add_recent_project(folder_path)

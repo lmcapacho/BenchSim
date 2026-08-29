@@ -50,8 +50,6 @@ class ProjectStateController:
         self.set_mode_value(project_mode)
         self.set_editor_font_size(editor_font_size, persist=False)
         self.refresh_project(preserve_tb=selected_tb)
-        if folder_path and os.path.isdir(folder_path):
-            self.add_recent_project(folder_path)
 
     def persist_selected_folder(self, folder_selected):
         """Persist folder context and update recents."""
@@ -68,4 +66,8 @@ class ProjectStateController:
 
     def current_folder_or_home(self):
         """Return current folder field content or home as fallback."""
+        config = self.settings.get_config() or {}
+        last_directory = config.get("last_project_directory", "")
+        if last_directory and os.path.isdir(last_directory):
+            return last_directory
         return self.folder_path_getter() or os.path.expanduser("~")

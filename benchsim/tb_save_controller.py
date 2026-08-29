@@ -11,6 +11,8 @@ class TBSaveController:
         *,
         editor,
         external_change_controller,
+        stimuli_persistence,
+        merge_controller,
         hide_external_change_banner,
         set_save_button_enabled,
         set_status_text,
@@ -19,6 +21,8 @@ class TBSaveController:
     ):
         self.editor = editor
         self.external_change_controller = external_change_controller
+        self.stimuli_persistence = stimuli_persistence
+        self.merge_controller = merge_controller
         self.hide_external_change_banner = hide_external_change_banner
         self.set_save_button_enabled = set_save_button_enabled
         self.set_status_text = set_status_text
@@ -30,6 +34,8 @@ class TBSaveController:
         backup_file = f"{target_file}.bak"
         temp_file = f"{target_file}.tmp"
         content = self.editor.text()
+        if os.path.basename(target_file) != "scenario.vh":
+            self.stimuli_persistence.persist_from_tb_text(target_file, content)
 
         # Recover files previously affected by CRLF double-conversion on Windows.
         while "\r\r\n" in content:
@@ -53,6 +59,7 @@ class TBSaveController:
         finally:
             self.external_change_controller.end_internal_save()
 
+        self.merge_controller.record_saved(target_file, content)
         self.external_change_controller.sync_after_save()
         self.hide_external_change_banner()
         self.set_save_button_enabled(False)

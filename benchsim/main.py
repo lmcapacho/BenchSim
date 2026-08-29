@@ -15,6 +15,7 @@ from PyQt6.QtWidgets import (
     QLabel,
     QLineEdit,
     QMainWindow,
+    QMessageBox,
     QPushButton,
     QSizePolicy,
     QStatusBar,
@@ -30,6 +31,7 @@ try:
     from .editor_search_controller import EditorSearchController
     from .external_change_controller import ExternalTBChangeController
     from .i18n import normalize_lang, tr
+    from .ice_project import IcestudioProject, IcestudioProjectError
     from .simulation_flow_controller import SimulationFlowController
     from .ui_theme_controller import UIThemeController
     from .update_controller import UpdateController
@@ -38,6 +40,8 @@ try:
     from .settings_dialog import ConfigDialog
     from .settings_manager import SettingsManager
     from .simulation_manager import SimulationManager
+    from .stimuli_persistence import StimuliPersistence
+    from .tb_merge_controller import TBMergeController
     from .project_load_controller import ProjectLoadController
     from .project_state_controller import ProjectStateController
     from .project_selection_controller import ProjectSelectionController
@@ -50,6 +54,7 @@ except ImportError:
     from benchsim.editor_search_controller import EditorSearchController
     from benchsim.external_change_controller import ExternalTBChangeController
     from benchsim.i18n import normalize_lang, tr
+    from benchsim.ice_project import IcestudioProject, IcestudioProjectError
     from benchsim.simulation_flow_controller import SimulationFlowController
     from benchsim.ui_theme_controller import UIThemeController
     from benchsim.update_controller import UpdateController
@@ -58,6 +63,8 @@ except ImportError:
     from benchsim.settings_dialog import ConfigDialog
     from benchsim.settings_manager import SettingsManager
     from benchsim.simulation_manager import SimulationManager
+    from benchsim.stimuli_persistence import StimuliPersistence
+    from benchsim.tb_merge_controller import TBMergeController
     from benchsim.project_load_controller import ProjectLoadController
     from benchsim.project_state_controller import ProjectStateController
     from benchsim.project_selection_controller import ProjectSelectionController
@@ -137,12 +144,6 @@ class BenchSimApp(QMainWindow):
         self.folder_entry = QLineEdit()
         self.folder_entry.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
 
-        self.mode_combo = QComboBox()
-        self.mode_combo.addItem("", "auto")
-        self.mode_combo.addItem("", "icestudio")
-        self.mode_combo.addItem("", "generic")
-        self.mode_combo.currentIndexChanged.connect(self.reload_verilog_folder)
-
         self.tb_combo = QComboBox()
         self.tb_combo.currentIndexChanged.connect(self.tb_selection_changed)
 
@@ -153,7 +154,7 @@ class BenchSimApp(QMainWindow):
         )
 
         self.folder_button = QToolButton()
-        self.folder_button.clicked.connect(self.select_folder)
+        self.folder_button.clicked.connect(self.select_project_file)
 
         self.reload_button = QToolButton()
         self.reload_button.clicked.connect(self.reload_verilog_folder)
@@ -166,7 +167,6 @@ class BenchSimApp(QMainWindow):
 
         toolbar_layout.addWidget(self.folder_entry)
         toolbar_layout.addWidget(self.recent_combo)
-        toolbar_layout.addWidget(self.mode_combo)
         toolbar_layout.addWidget(self.tb_combo)
         toolbar_layout.addWidget(self.folder_button)
         toolbar_layout.addWidget(self.reload_button)
@@ -262,11 +262,10 @@ class BenchSimApp(QMainWindow):
         self.replace_input.returnPressed.connect(lambda: self.search_controller.replace_current())
         self.project_selection_controller = ProjectSelectionController(
             settings=self.settings,
-            mode_combo=self.mode_combo,
             tb_combo=self.tb_combo,
             recent_combo=self.recent_combo,
             translate=lambda key, **kwargs: tr(key, self.language, **kwargs),
-            open_project_folder=self._open_project_folder_from_recent,
+            open_project_path=self._open_project_path_from_recent,
             get_current_tb_path=lambda: self.current_tb_file,
         )
         self.tb_file_controller = TBFileController(
@@ -275,10 +274,14 @@ class BenchSimApp(QMainWindow):
             save_button=self.save_button,
             external_change_controller=self.external_change_controller,
             on_hide_external_banner=self._hide_external_change_banner,
+            stimuli_persistence=StimuliPersistence,
+            merge_controller=TBMergeController,
         )
         self.tb_save_controller = TBSaveController(
             editor=self.editor,
             external_change_controller=self.external_change_controller,
+            stimuli_persistence=StimuliPersistence,
+            merge_controller=TBMergeController,
             hide_external_change_banner=self._hide_external_change_banner,
             set_save_button_enabled=self.save_button.setEnabled,
             set_status_text=self.status_label.setText,
@@ -394,9 +397,18 @@ class BenchSimApp(QMainWindow):
         QTimer.singleShot(1200, self.maybe_check_updates_on_startup)
         QTimer.singleShot(1600, self.maybe_setup_linux_desktop_entry)
 
-    def _open_project_folder_from_recent(self, folder_path):
-        self.folder_entry.setText(folder_path)
-        self._refresh_project()
+    def _open_project_path_from_recent(self, project_path):
+        """Restore a recent Icestudio design or generic testbench."""
+        path = Path(project_path)
+        if path.suffix.lower() == ".ice":
+            self.open_icestudio_design(path)
+            return
+        if path.is_file():
+            self.open_verilog_testbench(path)
+            return
+        if path.is_dir():
+            # Keep compatibility with folders saved by older BenchSim versions.
+            self._activate_project(path, "auto", recent_path=path)
 
     @staticmethod
     def load_stylesheet(theme_path):
@@ -419,7 +431,7 @@ class BenchSimApp(QMainWindow):
 
         self.shortcut_open = QShortcut(QKeySequence.StandardKey.Open, self)
         self.shortcut_open.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
-        self.shortcut_open.activated.connect(self.select_folder)
+        self.shortcut_open.activated.connect(self.select_project_file)
 
         self.shortcut_reload = QShortcut(QKeySequence("F5"), self)
         self.shortcut_reload.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
@@ -512,14 +524,10 @@ class BenchSimApp(QMainWindow):
         self.sim_button.setText(tr("btn_simulate", self.language))
         self.sim_button.setToolTip(tr("tooltip_simulate", self.language))
 
-        self.folder_entry.setPlaceholderText(tr("placeholder_folder", self.language))
-        self.mode_combo.setItemText(0, tr("mode_auto", self.language))
-        self.mode_combo.setItemText(1, tr("mode_icestudio", self.language))
-        self.mode_combo.setItemText(2, tr("mode_generic", self.language))
-        self.mode_combo.setToolTip(tr("tooltip_mode", self.language))
+        self.folder_entry.setPlaceholderText(tr("placeholder_project", self.language))
         self.tb_combo.setToolTip(tr("tooltip_tb", self.language))
         self.recent_combo.setToolTip(tr("tooltip_recent_projects", self.language))
-        self.folder_button.setToolTip(f"{tr('tooltip_select_folder', self.language)} (Ctrl+O)")
+        self.folder_button.setToolTip(f"{tr('tooltip_open_project', self.language)} (Ctrl+O)")
         self.reload_button.setToolTip(f"{tr('tooltip_reload', self.language)} (F5)")
         self.validate_tool_button.setToolTip(f"{tr('tooltip_validate', self.language)} (Ctrl+Shift+V)")
         self.config_button.setText(tr("settings_button", self.language))
@@ -532,13 +540,16 @@ class BenchSimApp(QMainWindow):
         self.project_selection_controller.refresh_recent_projects()
         self.dispatcher.set_language(self.language)
 
-    def _load_tb_file(self, tb_path):
-        loaded = self.tb_file_controller.load_tb_file(
+    def _load_tb_file(self, tb_path, *, merge_external=False):
+        result = self.tb_file_controller.load_tb_file(
             tb_path,
             status_saved_text=tr("status_saved", self.language),
+            status_dirty_text=tr("status_dirty", self.language),
+            merge_external=merge_external,
         )
-        if loaded:
+        if result.loaded:
             self.current_tb_file = tb_path
+        return result
 
     def _clear_current_tb_state(self):
         self.current_tb_file = None
@@ -561,8 +572,20 @@ class BenchSimApp(QMainWindow):
     def _reload_external_tb(self):
         if not self.current_tb_file:
             return
-        self._load_tb_file(self.current_tb_file)
-        self.status_label.setText(tr("status_external_reloaded", self.language))
+        result = self._load_tb_file(self.current_tb_file, merge_external=True)
+        if not result.loaded:
+            self.status_label.setText(
+                tr("status_external_merge_conflict", self.language, count=result.conflict_count)
+            )
+            self.console.append(
+                tr("external_merge_conflict", self.language, count=result.conflict_count)
+            )
+            return
+        self.status_label.setText(
+            tr("status_external_merged", self.language)
+            if result.merged
+            else tr("status_external_reloaded", self.language)
+        )
 
     def _keep_local_tb(self):
         if not self.current_tb_file:
@@ -682,17 +705,84 @@ class BenchSimApp(QMainWindow):
             return
         self.tb_save_controller.save_tb_file(self.current_tb_file)
 
-    def select_folder(self):
-        default_dir = self.project_state_controller.current_folder_or_home()
-        folder_selected = QFileDialog.getExistingDirectory(
-            self,
-            tr("dialog_select_folder", self.language),
-            default_dir,
+    def _activate_project(
+        self,
+        folder_path,
+        mode,
+        *,
+        preserve_tb=None,
+        recent_path=None,
+        ice_file="",
+        last_directory=None,
+    ):
+        """Apply one resolved project context and persist it for the next launch."""
+        folder = str(Path(folder_path).resolve())
+        self.folder_entry.setText(folder)
+        self.project_selection_controller.set_mode_value(mode)
+        self._refresh_project(preserve_tb=preserve_tb)
+        self.settings.update_config(
+            {
+                "verilog_folder": folder,
+                "project_mode": mode,
+                "selected_tb": self.current_tb_file or "",
+                "icestudio_design": str(ice_file) if ice_file else "",
+                "last_project_directory": str(last_directory or folder),
+            }
         )
-        if not folder_selected:
-            return
+        if recent_path:
+            self.project_selection_controller.add_recent_project(str(recent_path))
 
-        self.project_state_controller.persist_selected_folder(folder_selected)
+    def select_project_file(self):
+        """Open one project file; its suffix selects the appropriate workflow."""
+        default_dir = self.project_state_controller.current_folder_or_home()
+        filename, _ = QFileDialog.getOpenFileName(
+            self,
+            tr("dialog_open_project", self.language),
+            default_dir,
+            tr("filter_project", self.language),
+        )
+        if filename:
+            path = Path(filename)
+            if path.suffix.lower() == ".ice":
+                self.open_icestudio_design(path)
+            else:
+                self.open_verilog_testbench(path)
+
+    def open_icestudio_design(self, ice_file):
+        """Open the generated Verilog associated with the selected Icestudio design."""
+        try:
+            project = IcestudioProject.discover(ice_file)
+            workspace = project.ensure_testbench_workspace()
+        except IcestudioProjectError as error:
+            QMessageBox.warning(self, tr("dialog_icestudio_project", self.language), str(error))
+            return False
+
+        self._activate_project(
+            project.build_dir,
+            "icestudio",
+            preserve_tb=str(workspace.scenario),
+            recent_path=project.ice_file,
+            ice_file=project.ice_file,
+            last_directory=project.ice_file.parent,
+        )
+        self.status_label.setText(
+            tr("status_icestudio_opened", self.language, name=project.ice_file.name)
+        )
+        return True
+
+    def open_verilog_testbench(self, tb_file):
+        """Open a generic testbench and use its parent as the compile scope."""
+        path = Path(tb_file).expanduser().resolve()
+        if not path.is_file():
+            return False
+        self._activate_project(
+            path.parent,
+            "generic",
+            preserve_tb=str(path),
+            recent_path=path,
+            last_directory=path.parent,
+        )
+        return True
 
     def closeEvent(self, event):
         """Close GTKWave process when the main window closes."""

@@ -112,10 +112,18 @@ class SimulationManager:
 
         source_files = [str(path.resolve()) for path in source_candidates]
 
+        # Managed Icestudio workspaces compile a generated wrapper but expose the
+        # included scenario file as the document users edit.
+        managed_scenario = base / ".benchsim" / "scenario.vh"
+        if effective_mode == "icestudio" and managed_scenario.is_file():
+            tb_files = [str(managed_scenario.resolve())]
+
         # Keep backward compatibility with Icestudio projects preferring main_tb.v.
         preferred_tb = None
         main_tb = str((base / "main_tb.v").resolve())
-        if main_tb in tb_files:
+        if managed_scenario.is_file() and str(managed_scenario.resolve()) in tb_files:
+            preferred_tb = str(managed_scenario.resolve())
+        elif main_tb in tb_files:
             preferred_tb = main_tb
         elif tb_files:
             preferred_tb = tb_files[0]
@@ -157,7 +165,31 @@ class SimulationManager:
 
         return None
 
-    def create_gtkw_config(self, vcd_path, gtkw_path, screen_size, tb_top=None):
+    @staticmethod
+    def _testbench_signal_order(tb_file):
+        """Return direct reg/wire declarations in their source order."""
+        if not tb_file or not os.path.isfile(tb_file):
+            return []
+        with open(tb_file, "r", encoding="utf-8") as file:
+            content = file.read()
+        return re.findall(
+            r"^\s*(?:reg|wire)\s*(?:\[[^\]]+\]\s*)?([A-Za-z_][A-Za-z0-9_$]*)\s*;",
+            content,
+            re.MULTILINE,
+        )
+
+    @staticmethod
+    def _trace_order_key(name, tb_top, signal_order):
+        """Sort direct VCD references according to their testbench declaration."""
+        prefix = f"{tb_top}." if tb_top else ""
+        local_name = name[len(prefix):] if prefix and name.startswith(prefix) else name
+        local_name = re.sub(r"\[[^\]]+\]$", "", local_name)
+        try:
+            return signal_order.index(local_name)
+        except ValueError:
+            return len(signal_order)
+
+    def create_gtkw_config(self, vcd_path, gtkw_path, screen_size, tb_top=None, signal_order=None):
         """Generate GTKWave save file with a useful signal set."""
         if not os.path.exists(vcd_path):
             return False
@@ -190,8 +222,18 @@ class SimulationManager:
         selected_wires = set()
         if tb_top:
             scope_prefix = f"{tb_top}."
-            selected_regs = {name for name in reg_signals if name.startswith(scope_prefix)}
-            selected_wires = {name for name in wire_signals if name.startswith(scope_prefix)}
+            # Show only signals declared directly in the testbench. The full DUT
+            # hierarchy is useful for debugging, but overwhelms the student view.
+            selected_regs = {
+                name
+                for name in reg_signals
+                if name.startswith(scope_prefix) and "." not in name[len(scope_prefix):]
+            }
+            selected_wires = {
+                name
+                for name in wire_signals
+                if name.startswith(scope_prefix) and "." not in name[len(scope_prefix):]
+            }
 
         if not selected_regs and not selected_wires:
             selected_regs = reg_signals
@@ -200,16 +242,26 @@ class SimulationManager:
         if not selected_regs and not selected_wires:
             selected_wires = all_signals
 
+        signal_order = signal_order or []
+        ordered_regs = sorted(
+            selected_regs,
+            key=lambda name: self._trace_order_key(name, tb_top, signal_order),
+        )
+        ordered_wires = sorted(
+            selected_wires,
+            key=lambda name: self._trace_order_key(name, tb_top, signal_order),
+        )
         width, height = screen_size.width(), screen_size.height()
 
         with open(gtkw_path, "w", encoding="utf-8") as file:
             file.write(f'[dumpfile] "{os.path.basename(vcd_path)}"\n')
             file.write(f"[size] {width} {height}\n")
-
-            for name in sorted(selected_regs):
+            # Let the GTKWave profile fit the VCD after its final window size is
+            # known. A saved zoom factor would override that profile setting.
+            for name in ordered_regs:
                 file.write(f"{name}\n")
 
-            for name in sorted(selected_wires):
+            for name in ordered_wires:
                 file.write(f"{name}\n")
 
         return True
@@ -308,9 +360,16 @@ class SimulationManager:
                 source_files = self._sorted_unique_paths(scope_sources)
 
         source_no_tb = [src for src in source_files if not Path(src).name.endswith("_tb.v")]
+        compile_tb = selected_tb
+        include_dirs = []
+        if selected_tb and Path(selected_tb).name == "scenario.vh":
+            wrapper = Path(selected_tb).parent / "benchsim_tb.v"
+            if wrapper.is_file():
+                compile_tb = str(wrapper.resolve())
+                include_dirs.append(str(wrapper.parent.resolve()))
         compile_files = list(source_no_tb)
-        if selected_tb:
-            compile_files.append(selected_tb)
+        if compile_tb:
+            compile_files.append(compile_tb)
         compile_files = self._sorted_unique_paths(compile_files)
 
         if not compile_files:
@@ -327,7 +386,9 @@ class SimulationManager:
             "folder": folder,
             "mode": discovery["effective_mode"],
             "selected_tb": selected_tb,
+            "compile_tb": compile_tb,
             "compile_files": compile_files,
+            "include_dirs": include_dirs,
             "iverilog": iverilog,
             "gtkwave": gtkwave,
         }
@@ -347,7 +408,9 @@ class SimulationManager:
             return False, messages
         folder = plan["folder"]
         selected_tb = plan["selected_tb"]
+        compile_tb = plan["compile_tb"]
         compile_files = plan["compile_files"]
+        include_dirs = plan["include_dirs"]
         iverilog = plan["iverilog"]
         gtkwave = plan["gtkwave"]
 
@@ -362,7 +425,8 @@ class SimulationManager:
 
         # Keep VCD_OUTPUT as a raw token (no quotes) so testbench macros like
         # `DUMPSTR(`VCD_OUTPUT)` from Icestudio expand correctly.
-        compile_cmd = [iverilog, "-o", output_file, "-DVCD_OUTPUT=simulation", *compile_files]
+        include_args = [argument for directory in include_dirs for argument in ("-I", directory)]
+        compile_cmd = [iverilog, "-o", output_file, "-DVCD_OUTPUT=simulation", *include_args, *compile_files]
         sim_cmd = [vvp_path, output_file]
 
         messages.append(
@@ -427,8 +491,15 @@ class SimulationManager:
             )
             return False, messages
 
-        tb_top = self._extract_tb_top(selected_tb)
-        generated = self.create_gtkw_config(vcd_file, gtkw_config, screen_size, tb_top=tb_top)
+        tb_top = self._extract_tb_top(compile_tb)
+        signal_order = self._testbench_signal_order(compile_tb)
+        generated = self.create_gtkw_config(
+            vcd_file,
+            gtkw_config,
+            screen_size,
+            tb_top=tb_top,
+            signal_order=signal_order,
+        )
         if not generated:
             messages.append(
                 create_message(
