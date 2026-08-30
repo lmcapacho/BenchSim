@@ -3,8 +3,6 @@
 import sys
 import webbrowser
 
-from PyQt6.QtWidgets import QMessageBox
-
 from .updater import (
     check_for_updates as check_updates_remote,
     download_asset,
@@ -16,10 +14,19 @@ from .updater import (
 class UpdateController:
     """Handle update checks and user prompts."""
 
-    def __init__(self, *, settings, translate, language_getter):
+    def __init__(self, *, settings, translate, language_getter, message_box=None):
         self.settings = settings
         self._tr = translate
         self.language_getter = language_getter
+        self.message_box = message_box
+
+    def _message_box(self):
+        """Load Qt only when an interactive update prompt is needed."""
+        if self.message_box is None:
+            from PyQt6.QtWidgets import QMessageBox  # pylint: disable=import-outside-toplevel
+
+            self.message_box = QMessageBox
+        return self.message_box
 
     def maybe_check_updates_on_startup(self, parent_widget):
         """Check for updates on startup when enabled in settings."""
@@ -40,6 +47,7 @@ class UpdateController:
         """Check releases and use one download/install flow from every entry point."""
         cfg = self.settings.get_config()
         lang = self.language_getter()
+        message_box = self._message_box()
         if include_prerelease is None:
             include_prerelease = cfg.get("update_include_prerelease", False)
         result = check_updates_remote(
@@ -49,7 +57,7 @@ class UpdateController:
 
         if not result.get("ok"):
             if not silent_errors:
-                QMessageBox.warning(
+                message_box.warning(
                     parent_widget,
                     self._tr("popup_warning_title", lang),
                     self._tr("update_check_failed", lang, error=result.get("error", "unknown")),
@@ -58,14 +66,14 @@ class UpdateController:
 
         if not result.get("update_available"):
             if not silent_errors:
-                QMessageBox.information(
+                message_box.information(
                     parent_widget,
                     self._tr("popup_info_title", lang),
                     self._tr("update_not_available", lang, version=result.get("current_version", "?")),
                 )
             return
 
-        answer = QMessageBox.question(
+        answer = message_box.question(
             parent_widget,
             self._tr("update_available_title", lang),
             self._tr(
@@ -75,12 +83,12 @@ class UpdateController:
                 latest=result.get("latest_version", "?"),
             ),
         )
-        if answer != QMessageBox.StandardButton.Yes:
+        if answer != message_box.StandardButton.Yes:
             return
 
         asset = result.get("selected_asset")
         if not asset:
-            QMessageBox.information(
+            message_box.information(
                 parent_widget,
                 self._tr("popup_info_title", lang),
                 self._tr("update_asset_not_found", lang),
@@ -91,7 +99,7 @@ class UpdateController:
         try:
             package_path = download_asset(asset)
         except Exception as exc:  # pylint: disable=broad-exception-caught
-            QMessageBox.warning(
+            message_box.warning(
                 parent_widget,
                 self._tr("popup_warning_title", lang),
                 self._tr("update_download_failed", lang, error=str(exc)),
@@ -99,7 +107,7 @@ class UpdateController:
             webbrowser.open(result.get("release_url", ""))
             return
 
-        QMessageBox.information(
+        message_box.information(
             parent_widget,
             self._tr("popup_info_title", lang),
             self._tr("update_download_done", lang, path=package_path),
@@ -111,7 +119,7 @@ class UpdateController:
             launched = False
 
         if launched and sys.platform.startswith("win") and package_path.lower().endswith(".exe"):
-            QMessageBox.information(
+            message_box.information(
                 parent_widget,
                 self._tr("popup_info_title", lang),
                 self._tr("update_launching_installer", lang),
@@ -122,7 +130,7 @@ class UpdateController:
                 parent_widget.close()
             return
 
-        QMessageBox.information(
+        message_box.information(
             parent_widget,
             self._tr("popup_info_title", lang),
             self._tr("update_manual_install_hint", lang),

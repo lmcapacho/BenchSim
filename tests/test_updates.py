@@ -3,10 +3,19 @@
 import unittest
 from unittest.mock import Mock, patch
 
-from PyQt6.QtWidgets import QMessageBox
-
 from benchsim.update_controller import UpdateController
 from benchsim.updater import select_release_asset
+
+
+class _MessageBox:
+    """Small Qt-free message box double for update controller tests."""
+
+    class StandardButton:
+        Yes = object()
+
+    question = Mock(return_value=StandardButton.Yes)
+    information = Mock()
+    warning = Mock()
 
 
 class UpdateTests(unittest.TestCase):
@@ -28,6 +37,7 @@ class UpdateTests(unittest.TestCase):
             settings=settings,
             translate=lambda key, _lang, **kwargs: key,
             language_getter=lambda: "en",
+            message_box=_MessageBox,
         )
         parent = Mock()
         result = {
@@ -40,8 +50,6 @@ class UpdateTests(unittest.TestCase):
         }
 
         with patch("benchsim.update_controller.check_updates_remote", return_value=result), \
-             patch.object(QMessageBox, "question", return_value=QMessageBox.StandardButton.Yes), \
-             patch.object(QMessageBox, "information"), \
              patch("benchsim.update_controller.download_asset", return_value="C:/updates/BenchSim-setup.exe") as download, \
              patch("benchsim.update_controller.launch_installer", return_value=True) as launch, \
              patch("benchsim.update_controller.sys.platform", "win32"):
