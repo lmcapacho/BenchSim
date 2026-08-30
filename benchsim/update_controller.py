@@ -1,10 +1,16 @@
-"""Controller for startup/manual update checks."""
+"""Controller for startup and manual update checks."""
 
+import sys
 import webbrowser
 
 from PyQt6.QtWidgets import QMessageBox
 
-from .updater import check_for_updates as check_updates_remote, get_current_version
+from .updater import (
+    check_for_updates as check_updates_remote,
+    download_asset,
+    get_current_version,
+    launch_installer,
+)
 
 
 class UpdateController:
@@ -22,13 +28,22 @@ class UpdateController:
             return
         self.check_for_updates(parent_widget, silent_errors=True)
 
-    def check_for_updates(self, parent_widget, silent_errors=False):
-        """Check GitHub releases and offer opening the release page."""
+    def check_for_updates(
+        self,
+        parent_widget,
+        *,
+        silent_errors=False,
+        include_prerelease=None,
+        current_version=None,
+        on_installer_launched=None,
+    ):
+        """Check releases and use one download/install flow from every entry point."""
         cfg = self.settings.get_config()
         lang = self.language_getter()
-        include_prerelease = cfg.get("update_include_prerelease", False)
+        if include_prerelease is None:
+            include_prerelease = cfg.get("update_include_prerelease", False)
         result = check_updates_remote(
-            current_version=get_current_version(),
+            current_version=current_version or get_current_version(),
             include_prerelease=include_prerelease,
         )
 
@@ -42,6 +57,12 @@ class UpdateController:
             return
 
         if not result.get("update_available"):
+            if not silent_errors:
+                QMessageBox.information(
+                    parent_widget,
+                    self._tr("popup_info_title", lang),
+                    self._tr("update_not_available", lang, version=result.get("current_version", "?")),
+                )
             return
 
         answer = QMessageBox.question(
@@ -54,5 +75,55 @@ class UpdateController:
                 latest=result.get("latest_version", "?"),
             ),
         )
-        if answer == QMessageBox.StandardButton.Yes:
+        if answer != QMessageBox.StandardButton.Yes:
+            return
+
+        asset = result.get("selected_asset")
+        if not asset:
+            QMessageBox.information(
+                parent_widget,
+                self._tr("popup_info_title", lang),
+                self._tr("update_asset_not_found", lang),
+            )
             webbrowser.open(result.get("release_url", ""))
+            return
+
+        try:
+            package_path = download_asset(asset)
+        except Exception as exc:  # pylint: disable=broad-exception-caught
+            QMessageBox.warning(
+                parent_widget,
+                self._tr("popup_warning_title", lang),
+                self._tr("update_download_failed", lang, error=str(exc)),
+            )
+            webbrowser.open(result.get("release_url", ""))
+            return
+
+        QMessageBox.information(
+            parent_widget,
+            self._tr("popup_info_title", lang),
+            self._tr("update_download_done", lang, path=package_path),
+        )
+
+        try:
+            launched = launch_installer(package_path)
+        except Exception:  # pylint: disable=broad-exception-caught
+            launched = False
+
+        if launched and sys.platform.startswith("win") and package_path.lower().endswith(".exe"):
+            QMessageBox.information(
+                parent_widget,
+                self._tr("popup_info_title", lang),
+                self._tr("update_launching_installer", lang),
+            )
+            if on_installer_launched:
+                on_installer_launched()
+            else:
+                parent_widget.close()
+            return
+
+        QMessageBox.information(
+            parent_widget,
+            self._tr("popup_info_title", lang),
+            self._tr("update_manual_install_hint", lang),
+        )

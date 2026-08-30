@@ -1,7 +1,6 @@
 """Configuration dialog for tool paths, language, and update settings."""
 import os
 import sys
-import webbrowser
 
 # pylint: disable=no-name-in-module
 from PyQt6.QtCore import QSize, Qt
@@ -22,12 +21,7 @@ from PyQt6.QtWidgets import (
 
 from .i18n import LANG_OPTIONS, normalize_lang, tr
 from .settings_manager import SettingsManager
-from .updater import (
-    check_for_updates,
-    download_asset,
-    get_current_version,
-    launch_installer,
-)
+from .updater import get_current_version
 
 APP_NAME = "BenchSim"
 
@@ -35,8 +29,9 @@ APP_NAME = "BenchSim"
 class ConfigDialog(QDialog):
     """Dialog window for configuring tool paths and language."""
 
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, update_handler=None):
         super().__init__(parent)
+        self.update_handler = update_handler
         self.settings = SettingsManager(APP_NAME)
         cfg = self.settings.get_config()
         self.language = normalize_lang(cfg.get("language", "en"))
@@ -231,91 +226,22 @@ class ConfigDialog(QDialog):
         self.accept()
 
     def check_updates_now(self):
-        """Run manual update check and offer download/install flow."""
-        lang = self._active_language()
-        result = check_for_updates(
-            current_version=self.current_version,
+        """Run the same update flow used by the startup check."""
+        if not self.update_handler:
+            return
+        self.update_handler(
+            self,
+            silent_errors=False,
             include_prerelease=self.update_include_prerelease.isChecked(),
+            current_version=self.current_version,
+            on_installer_launched=self._close_for_update,
         )
 
-        if not result.get("ok"):
-            QMessageBox.warning(
-                self,
-                tr("popup_warning_title", lang),
-                tr("update_check_failed", lang, error=result.get("error", "unknown")),
-            )
-            return
-
-        if not result.get("update_available"):
-            QMessageBox.information(
-                self,
-                tr("popup_info_title", lang),
-                tr("update_not_available", lang, version=result.get("current_version", "?")),
-            )
-            return
-
-        should_download = QMessageBox.question(
-            self,
-            tr("update_available_title", lang),
-            tr(
-                "update_available_body",
-                lang,
-                current=result.get("current_version", "?"),
-                latest=result.get("latest_version", "?"),
-            ),
-        )
-        if should_download != QMessageBox.StandardButton.Yes:
-            return
-
-        asset = result.get("selected_asset")
-        if not asset:
-            QMessageBox.information(
-                self,
-                tr("popup_info_title", lang),
-                tr("update_asset_not_found", lang),
-            )
-            webbrowser.open(result.get("release_url", ""))
-            return
-
-        try:
-            package_path = download_asset(asset)
-        except Exception as exc:  # pylint: disable=broad-exception-caught
-            QMessageBox.warning(
-                self,
-                tr("popup_warning_title", lang),
-                tr("update_download_failed", lang, error=str(exc)),
-            )
-            webbrowser.open(result.get("release_url", ""))
-            return
-
-        QMessageBox.information(
-            self,
-            tr("popup_info_title", lang),
-            tr("update_download_done", lang, path=package_path),
-        )
-
-        launched = False
-        try:
-            launched = launch_installer(package_path)
-        except Exception:  # pylint: disable=broad-exception-caught
-            launched = False
-
-        if launched and sys.platform.startswith("win") and package_path.lower().endswith(".exe"):
-            QMessageBox.information(
-                self,
-                tr("popup_info_title", lang),
-                tr("update_launching_installer", lang),
-            )
-            self.accept()
-            if self.parent() is not None:
-                self.parent().close()
-            return
-
-        QMessageBox.information(
-            self,
-            tr("popup_info_title", lang),
-            tr("update_manual_install_hint", lang),
-        )
+    def _close_for_update(self):
+        """Close BenchSim only after the Windows installer has started."""
+        self.accept()
+        if self.parent() is not None:
+            self.parent().close()
 
     def select_executable(self, program_name):
         """Open a file dialog to select executable path."""

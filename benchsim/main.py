@@ -332,6 +332,7 @@ class BenchSimApp(QMainWindow):
             apply_theme=self.apply_theme,
             set_editor_font_size=self._set_editor_font_size,
             apply_language=self.apply_language,
+            update_controller_getter=lambda: self.update_controller,
         )
         self.problems_controller = ProblemsController(
             console_widget=self.console,

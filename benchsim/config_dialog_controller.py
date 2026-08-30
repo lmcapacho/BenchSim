@@ -15,6 +15,7 @@ class ConfigDialogController:
         apply_theme,
         set_editor_font_size,
         apply_language,
+        update_controller_getter,
     ):
         self.settings = settings
         self.dialog_class = dialog_class
@@ -24,10 +25,14 @@ class ConfigDialogController:
         self.apply_theme = apply_theme
         self.set_editor_font_size = set_editor_font_size
         self.apply_language = apply_language
+        self.update_controller_getter = update_controller_getter
 
     def open_config_dialog(self, parent_widget):
         """Show config dialog and apply persisted values when accepted."""
-        config_dialog = self.dialog_class(parent_widget)
+        config_dialog = self.dialog_class(
+            parent_widget,
+            update_handler=self._check_for_updates,
+        )
         if not config_dialog.exec():
             return
 
@@ -39,3 +44,7 @@ class ConfigDialogController:
         self.apply_theme()
         self.set_editor_font_size(editor_font_size, persist=False)
         self.apply_language()
+
+    def _check_for_updates(self, parent_widget, **kwargs):
+        """Delegate manual checks to the application-wide update controller."""
+        return self.update_controller_getter().check_for_updates(parent_widget, **kwargs)
