@@ -10,6 +10,7 @@ COMMENT_RE = re.compile(r"//.*?$|/\*.*?\*/", re.MULTILINE | re.DOTALL)
 DECL_RE = re.compile(r"\b(?:reg|logic|integer)\b([^;]*);", re.IGNORECASE)
 IDENT_RE = re.compile(r"\b[_a-zA-Z][_a-zA-Z0-9]*\b")
 ASSIGN_RE = re.compile(r"^([_a-zA-Z][_a-zA-Z0-9]*)\s*=\s*(.+)$")
+DELAY_RE = re.compile(r"^#\s*(\([^\r\n;]+\)|[^\s;]+)\s*(.*)$")
 
 
 class StimuliPersistence:
@@ -66,9 +67,20 @@ class StimuliPersistence:
             if not statement or statement.startswith("$"):
                 continue
             if statement.startswith("#"):
-                delay_value = statement[1:].strip()
-                if delay_value:
-                    steps.append({"kind": "delay", "time": delay_value})
+                delay_match = DELAY_RE.match(statement)
+                if not delay_match:
+                    continue
+                delay_value, trailing_statement = delay_match.groups()
+                steps.append({"kind": "delay", "time": delay_value})
+                assign_match = ASSIGN_RE.match(trailing_statement.strip())
+                if assign_match:
+                    steps.append(
+                        {
+                            "kind": "assign",
+                            "signal": assign_match.group(1),
+                            "value": assign_match.group(2).strip(),
+                        }
+                    )
                 continue
             assign_match = ASSIGN_RE.match(statement)
             if assign_match:
