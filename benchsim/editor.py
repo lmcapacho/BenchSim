@@ -94,8 +94,8 @@ class VerilogEditor(QsciScintilla):
         self.setCaretLineVisible(True)
         self.setFolding(QsciScintilla.FoldStyle.BoxedTreeFoldStyle)
 
-        self.setTabWidth(2)
-        self.setIndentationWidth(2)
+        self.setTabWidth(4)
+        self.setIndentationWidth(4)
         self.setIndentationsUseTabs(False)
         self.setTabIndents(True)
         self.setBackspaceUnindents(True)
@@ -162,6 +162,7 @@ class VerilogEditor(QsciScintilla):
         self.is_loading = True
         self.setText(text)
         self.is_loading = False
+        self._refresh_dynamic_completions()
 
     def trigger_change(self):
         """Emit file_changed when content changes from user edits."""
@@ -189,6 +190,22 @@ class VerilogEditor(QsciScintilla):
         for pattern in (r"\bmodule\s+([_a-zA-Z][_a-zA-Z0-9]*)", r"\btask\s+([_a-zA-Z][_a-zA-Z0-9]*)"):
             for mod_match in re.finditer(pattern, content):
                 symbols.add(mod_match.group(1))
+
+        # Managed Icestudio scenarios keep the DUT interface in a generated
+        # comment block because declarations belong in the wrapper. Include
+        # those names so inputs and outputs are available to autocomplete.
+        interface_match = re.search(
+            r"// <BENCHSIM-INTERFACE>\n(.*?)// </BENCHSIM-INTERFACE>",
+            content,
+            re.DOTALL,
+        )
+        if interface_match:
+            for name_match in re.finditer(
+                r"^//\s{3,}([_a-zA-Z][_a-zA-Z0-9]*)\b",
+                interface_match.group(1),
+                re.MULTILINE,
+            ):
+                symbols.add(name_match.group(1))
         return symbols
 
     def _refresh_api(self):
