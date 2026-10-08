@@ -31,7 +31,7 @@ permissions:
 jobs:
   build-linux:
     name: Build Linux Package
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     steps:
       - name: Checkout
@@ -60,7 +60,7 @@ jobs:
           tar -C dist -czf "BenchSim-${VERSION}-linux-x86_64.tar.gz" BenchSim
 
       - name: Upload Linux artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: linux-release-assets
           path: BenchSim-*-linux-x86_64.tar.gz
@@ -115,7 +115,7 @@ jobs:
           Move-Item $installer.FullName "BenchSim-$version-windows-x64-setup.exe" -Force
 
       - name: Upload Windows artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: windows-release-assets
           path: |
@@ -124,8 +124,16 @@ jobs:
           if-no-files-found: error
 
   build-macos:
-    name: Build macOS Package (Apple Silicon)
-    runs-on: macos-latest
+    name: Build macOS Package (${{ matrix.architecture }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - architecture: arm64
+            runner: macos-latest
+          - architecture: x86_64
+            runner: macos-15-intel
 
     steps:
       - name: Checkout
@@ -163,38 +171,44 @@ jobs:
         run: |
           VERSION="${BUILD_VERSION}"
           ditto -c -k --sequesterRsrc --keepParent \
-            dist/BenchSim.app "BenchSim-${VERSION}-macos-arm64.zip"
+            dist/BenchSim.app "BenchSim-${VERSION}-macos-${{ matrix.architecture }}.zip"
 
       - name: Upload macOS artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
-          name: macos-release-assets
-          path: BenchSim-*-macos-arm64.zip
+          name: macos-${{ matrix.architecture }}-release-assets
+          path: BenchSim-*-macos-${{ matrix.architecture }}.zip
           if-no-files-found: error
 
   publish-release:
     name: Publish GitHub Release
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: [build-linux, build-windows, build-macos]
     if: github.event_name == 'push' || inputs.publish_release
 
     steps:
       - name: Download Linux artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: linux-release-assets
           path: release-assets
 
       - name: Download Windows artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v7
         with:
           name: windows-release-assets
           path: release-assets
 
-      - name: Download macOS artifacts
-        uses: actions/download-artifact@v4
+      - name: Download Apple Silicon macOS artifacts
+        uses: actions/download-artifact@v7
         with:
-          name: macos-release-assets
+          name: macos-arm64-release-assets
+          path: release-assets
+
+      - name: Download Intel macOS artifacts
+        uses: actions/download-artifact@v7
+        with:
+          name: macos-x86_64-release-assets
           path: release-assets
 
       - name: Create/Update GitHub Release

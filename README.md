@@ -101,7 +101,7 @@ Output is generated in `dist/BenchSim/` (onedir). Distribute the full folder, no
 
 ### macOS package
 
-Release builds create `BenchSim.app` for Apple Silicon Macs (`arm64`) and package it as a ZIP archive. Icarus Verilog and GTKWave remain external dependencies and must be installed separately.
+Release builds create `BenchSim.app` ZIP archives for Apple Silicon (`arm64`) and Intel (`x86_64`) Macs. Icarus Verilog and GTKWave remain external dependencies and must be installed separately.
 
 Unsigned macOS builds can show a Gatekeeper warning on first launch. Code signing and notarization are planned for a later distribution stage.
 

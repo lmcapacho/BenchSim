@@ -47,6 +47,15 @@ class UpdateTests(unittest.TestCase):
              patch("benchsim.updater.platform.machine", return_value="x86_64"):
             self.assertIsNone(select_release_asset(assets))
 
+    def test_prefers_intel_macos_asset(self):
+        assets = [
+            {"name": "BenchSim-v0.1.2-macos-arm64.zip", "url": "apple-silicon"},
+            {"name": "BenchSim-v0.1.2-macos-x86_64.zip", "url": "intel"},
+        ]
+        with patch("benchsim.updater.sys.platform", "darwin"), \
+             patch("benchsim.updater.platform.machine", return_value="x86_64"):
+            self.assertEqual(select_release_asset(assets)["url"], "intel")
+
     def test_windows_update_downloads_and_closes_after_installer_launch(self):
         settings = Mock()
         settings.get_config.return_value = {"update_include_prerelease": False}
