@@ -65,3 +65,47 @@ endmodule
             refreshed = workspace.scenario.read_text(encoding="utf-8")
             self.assertIn("//   rst", refreshed)
             self.assertIn("#5 X = 8'h2A;", refreshed)
+
+    def test_replaces_removed_clock_input_and_generates_default_clock(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            ice_file = root / "register.ice"
+            ice_file.write_text("{}", encoding="utf-8")
+            build_dir = root / "ice-build" / "register"
+            build_dir.mkdir(parents=True)
+            main_v = build_dir / "main.v"
+            main_v.write_text(
+                """module main (
+    input vclk,
+    input [3:0] D,
+    output [3:0] Q
+);
+endmodule
+""",
+                encoding="utf-8",
+            )
+            project = IcestudioProject.discover(ice_file)
+            workspace = project.ensure_testbench_workspace()
+            scenario = workspace.scenario.read_text(encoding="utf-8")
+            workspace.scenario.write_text(
+                scenario.replace("    // Add your stimulus below this line.", "    D = 4'hA;\n\n    // Add your stimulus below this line."),
+                encoding="utf-8",
+            )
+
+            main_v.write_text(
+                """module main (
+    input clk,
+    input [3:0] D,
+    output [3:0] Q
+);
+endmodule
+""",
+                encoding="utf-8",
+            )
+            project.ensure_testbench_workspace()
+            refreshed = workspace.scenario.read_text(encoding="utf-8")
+
+            self.assertNotIn("vclk =", refreshed)
+            self.assertIn("clk = 0;", refreshed)
+            self.assertIn("D = 4'hA;", refreshed)
+            self.assertIn("always #5 clk = ~clk;", refreshed)

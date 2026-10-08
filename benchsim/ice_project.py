@@ -104,6 +104,10 @@ class VerilogInterface:
     )
     RANDOM_SUFFIX_RE = re.compile(r"_(?:v|w)[0-9a-f]{6}$", re.IGNORECASE)
     HIDDEN_PORT_NAMES = {"vinit"}
+    INITIALIZATION_START = "// <BENCHSIM-DEFAULT-INITIALIZATION>"
+    INITIALIZATION_END = "// </BENCHSIM-DEFAULT-INITIALIZATION>"
+    CLOCK_START = "// <BENCHSIM-DEFAULT-CLOCK>"
+    CLOCK_END = "// </BENCHSIM-DEFAULT-CLOCK>"
 
     def __init__(self, module_name, ports):
         self.module_name = module_name
@@ -212,14 +216,8 @@ class VerilogInterface:
         ]
         input_text = "\n".join(inputs) or "//   (none)"
         output_text = "\n".join(outputs) or "//   (none)"
-        initial_values = "\n".join(f"    {signal} = 0;" for port, signal in signal_map if port.direction == "input")
-        clock_signals = [signal for port, signal in signal_map if port.direction == "input" and signal.lower() == "clk"]
-        clock_hint = ""
-        if clock_signals:
-            clock_hint = (
-                "\n// Optional clock generator. Uncomment and adjust the period if needed.\n"
-                f"// always #5 {clock_signals[0]} = ~{clock_signals[0]};\n"
-            )
+        initialization = self._render_initialization()
+        clock = self._render_default_clock()
         return (
             "// BenchSim simulation scenario\n"
             f"// Design under test: {self.module_name}\n"
@@ -234,19 +232,128 @@ class VerilogInterface:
             "// Add any valid testbench code below: initial, always, tasks, loops,\n"
             "// assertions, $display, $stop, and $finish.\n\n"
             "initial begin\n"
-            "    // Initial input values. Change them if your test requires it.\n"
-            f"{initial_values}\n\n"
+            f"{initialization}\n\n"
             "    // Add your stimulus below this line.\n\n"
             "\n"
             "    // Default end time. Change or replace it with your own completion logic.\n"
             "    #100;\n"
             "    $finish;\n"
             "end\n"
-            f"{clock_hint}"
+            f"{clock}"
         )
 
+    def _input_signals(self):
+        """Return friendly names for the current DUT inputs."""
+        return [signal for port, signal in self._signal_map() if port.direction == "input"]
+
+    def _clock_signal(self):
+        """Return the conventional clock input, if the interface exposes one."""
+        return next((signal for signal in self._input_signals() if signal.lower() == "clk"), None)
+
+    def _render_initialization(self, values=None):
+        """Render generated defaults, preserving values for unchanged inputs."""
+        values = values or {}
+        lines = [
+            f"    {self.INITIALIZATION_START}",
+            "    // Default input values. Add custom setup below this block.",
+        ]
+        lines.extend(f"    {signal} = {values.get(signal, '0')};" for signal in self._input_signals())
+        lines.append(f"    {self.INITIALIZATION_END}")
+        return "\n".join(lines)
+
+    def _render_default_clock(self):
+        """Render a 10 ns default clock for an input explicitly named ``clk``."""
+        clock = self._clock_signal()
+        if not clock:
+            return ""
+        return (
+            f"\n{self.CLOCK_START}\n"
+            "// Generated clock: 10 ns period. Replace this block for custom timing.\n"
+            f"always #5 {clock} = ~{clock};\n"
+            f"{self.CLOCK_END}\n"
+        )
+
+    @staticmethod
+    def _assignment_values(content, valid_signals):
+        """Extract simple assignment values for signals still present in the DUT."""
+        values = {}
+        pattern = re.compile(r"^\s*([A-Za-z_][A-Za-z0-9_$]*)\s*=\s*(.+?)\s*;\s*$", re.MULTILINE)
+        for match in pattern.finditer(content):
+            signal, value = match.groups()
+            if signal in valid_signals:
+                values[signal] = value
+        return values
+
+    @staticmethod
+    def _replace_marked_block(content, start_marker, end_marker, replacement):
+        """Replace one generated block, or return ``None`` when it is absent."""
+        pattern = re.compile(
+            rf"^[ \t]*{re.escape(start_marker)}\n.*?^[ \t]*{re.escape(end_marker)}\n?",
+            re.MULTILINE | re.DOTALL,
+        )
+        if not pattern.search(content):
+            return None
+        return pattern.sub(replacement, content, count=1)
+
+    def _refresh_initialization(self, content):
+        """Update generated defaults while retaining values for unchanged inputs."""
+        current_inputs = set(self._input_signals())
+        if self.INITIALIZATION_START in content and self.INITIALIZATION_END in content:
+            previous_values = self._assignment_values(content, current_inputs)
+            replacement = self._render_initialization(previous_values)
+            return self._replace_marked_block(
+                content,
+                self.INITIALIZATION_START,
+                self.INITIALIZATION_END,
+                replacement + "\n",
+            )
+
+        legacy_pattern = re.compile(
+            r"^[ \t]*// Initial input values\..*?\n(?P<body>.*?)(?=^[ \t]*// Add your stimulus below this line\.)",
+            re.MULTILINE | re.DOTALL,
+        )
+        legacy_match = legacy_pattern.search(content)
+        if not legacy_match:
+            return content
+        body = legacy_match.group("body")
+        unsupported = [
+            line for line in body.splitlines()
+            if line.strip() and not line.lstrip().startswith("//")
+            and not re.match(r"^\s*[A-Za-z_][A-Za-z0-9_$]*\s*=\s*.+;\s*$", line)
+        ]
+        if unsupported:
+            return content
+        values = self._assignment_values(body, current_inputs)
+        return content[: legacy_match.start()] + self._render_initialization(values) + "\n" + content[legacy_match.end():]
+
+    def _refresh_default_clock(self, content):
+        """Replace generated clocks when the clk port changes, preserving custom ones."""
+        clock = self._clock_signal()
+        marked_pattern = re.compile(
+            rf"^{re.escape(self.CLOCK_START)}\n(?P<body>.*?)^{re.escape(self.CLOCK_END)}\n?",
+            re.MULTILINE | re.DOTALL,
+        )
+        marked_match = marked_pattern.search(content)
+        if marked_match:
+            body = marked_match.group("body")
+            if clock and re.search(rf"\b{re.escape(clock)}\s*=\s*~\s*{re.escape(clock)}\b", body):
+                return content
+            replacement = self._render_default_clock()
+            return content[: marked_match.start()] + replacement + content[marked_match.end():]
+
+        if not clock:
+            return content
+        existing_clock = re.search(
+            rf"^\s*always\b[^\n]*\b{re.escape(clock)}\s*=\s*~\s*{re.escape(clock)}\b",
+            content,
+            re.MULTILINE,
+        )
+        if existing_clock:
+            return content
+        return content.rstrip() + "\n" + self._render_default_clock()
+
     def refresh_scenario_header(self, content):
-        """Refresh generated interface comments without touching user test code."""
+        """Refresh generated interface, defaults, and clock without touching stimuli."""
         template = self.render_scenario_template()
         marker_end = "// </BENCHSIM-INTERFACE>"
         new_end = template.find(marker_end)
@@ -257,7 +364,9 @@ class VerilogInterface:
         old_start = content.find("// BenchSim simulation scenario")
         old_end = content.find(marker_end)
         if old_start == 0 and old_end >= 0:
-            return new_header + content[old_end + len(marker_end):]
+            content = new_header + content[old_end + len(marker_end):]
+            content = self._refresh_initialization(content)
+            return self._refresh_default_clock(content)
 
         legacy_default = (
             "// BenchSim simulation scenario\n"

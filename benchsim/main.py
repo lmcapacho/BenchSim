@@ -688,6 +688,21 @@ class BenchSimApp(QMainWindow):
         )
 
     def reload_verilog_folder(self):
+        """Refresh project files and regenerate managed Icestudio wrappers."""
+        ice_file = self.settings.get_config().get("icestudio_design", "")
+        if self.project_selection_controller.current_mode() == "icestudio" and ice_file:
+            try:
+                project = IcestudioProject.discover(ice_file)
+                workspace = project.ensure_testbench_workspace()
+            except IcestudioProjectError as error:
+                QMessageBox.warning(self, tr("dialog_icestudio_project", self.language), str(error))
+                return
+            self._refresh_project(preserve_tb=str(workspace.scenario))
+            self.settings.update_config({"selected_tb": self.current_tb_file or ""})
+            self.status_label.setText(
+                tr("status_icestudio_reloaded", self.language, name=project.ice_file.name)
+            )
+            return
         self._refresh_project(preserve_tb=self.current_tb_file)
 
     def tb_selection_changed(self):
