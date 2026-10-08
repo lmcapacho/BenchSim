@@ -1,5 +1,6 @@
 # -*- mode: python ; coding: utf-8 -*-
 import os
+import sys
 
 # Some PyInstaller environments do not define __file__ in spec context.
 spec_path = globals().get("__file__") or globals().get("SPEC")
@@ -32,6 +33,14 @@ a = Analysis(
 )
 pyz = PYZ(a.pure)
 
+icon_path = os.path.join(project_root, 'benchsim', 'benchsim.ico')
+if sys.platform == "darwin":
+    # The release workflow generates this native icon from benchsim.png.
+    icon_path = os.environ.get(
+        "BENCHSIM_MACOS_ICON",
+        os.path.join(project_root, 'benchsim', 'benchsim.icns'),
+    )
+
 exe = EXE(
     pyz,
     a.scripts,
@@ -47,7 +56,7 @@ exe = EXE(
     console=False,
     disable_windowed_traceback=False,
     argv_emulation=False,
-    icon=os.path.join(project_root, 'benchsim', 'benchsim.ico'),
+    icon=icon_path,
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
@@ -62,3 +71,16 @@ coll = COLLECT(
     upx_exclude=[],
     name='BenchSim',
 )
+
+if sys.platform == "darwin":
+    app = BUNDLE(
+        coll,
+        name="BenchSim.app",
+        icon=icon_path,
+        bundle_identifier="com.lmcapacho.benchsim",
+        info_plist={
+            "CFBundleDisplayName": "BenchSim",
+            "CFBundleName": "BenchSim",
+            "NSHighResolutionCapable": True,
+        },
+    )

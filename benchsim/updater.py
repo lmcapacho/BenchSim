@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import platform
 import re
 import shutil
 import subprocess
@@ -125,6 +126,12 @@ def select_release_asset(assets):
         patterns = ("windows-x64-setup.exe", "windows-x64-portable.zip", ".exe", ".zip")
     elif sys.platform.startswith("linux"):
         patterns = ("linux-x86_64.tar.gz", ".tar.gz", ".zip")
+    elif sys.platform == "darwin":
+        machine = platform.machine().lower()
+        if machine in {"arm64", "aarch64"}:
+            patterns = ("macos-arm64.zip", "macos-aarch64.zip")
+        else:
+            patterns = ("macos-x86_64.zip",)
     else:
         patterns = (".zip", ".tar.gz", ".exe")
 
@@ -132,6 +139,8 @@ def select_release_asset(assets):
         for name, item in lowered:
             if pattern in name or name.endswith(pattern):
                 return item
+    if sys.platform == "darwin":
+        return None
     return valid_assets[0]
 
 
@@ -182,4 +191,8 @@ def launch_installer(package_path):
         if shutil.which(opener):
             subprocess.Popen([opener, os.path.dirname(path) or "."])  # pylint: disable=consider-using-with
             return True
+
+    if sys.platform == "darwin" and shutil.which("open"):
+        subprocess.Popen(["open", os.path.dirname(path) or "."])  # pylint: disable=consider-using-with
+        return True
     return False

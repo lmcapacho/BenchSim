@@ -99,6 +99,12 @@ python -m PyInstaller packaging/pyinstaller/BenchSim.spec --noconfirm --clean
 
 Output is generated in `dist/BenchSim/` (onedir). Distribute the full folder, not only the binary.
 
+### macOS package
+
+Release builds create `BenchSim.app` for Apple Silicon Macs (`arm64`) and package it as a ZIP archive. Icarus Verilog and GTKWave remain external dependencies and must be installed separately.
+
+Unsigned macOS builds can show a Gatekeeper warning on first launch. Code signing and notarization are planned for a later distribution stage.
+
 ### Windows installer (Inno Setup)
 
 ```powershell

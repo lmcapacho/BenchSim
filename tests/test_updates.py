@@ -30,6 +30,23 @@ class UpdateTests(unittest.TestCase):
         with patch("benchsim.updater.sys.platform", "win32"):
             self.assertEqual(select_release_asset(assets)["url"], "setup")
 
+    def test_prefers_apple_silicon_macos_asset(self):
+        assets = [
+            {"name": "BenchSim-v0.1.2-macos-x86_64.zip", "url": "intel"},
+            {"name": "BenchSim-v0.1.2-macos-arm64.zip", "url": "apple-silicon"},
+        ]
+        with patch("benchsim.updater.sys.platform", "darwin"), \
+             patch("benchsim.updater.platform.machine", return_value="arm64"):
+            self.assertEqual(select_release_asset(assets)["url"], "apple-silicon")
+
+    def test_does_not_offer_arm_package_to_intel_macos(self):
+        assets = [
+            {"name": "BenchSim-v0.1.2-macos-arm64.zip", "url": "apple-silicon"},
+        ]
+        with patch("benchsim.updater.sys.platform", "darwin"), \
+             patch("benchsim.updater.platform.machine", return_value="x86_64"):
+            self.assertIsNone(select_release_asset(assets))
+
     def test_windows_update_downloads_and_closes_after_installer_launch(self):
         settings = Mock()
         settings.get_config.return_value = {"update_include_prerelease": False}
