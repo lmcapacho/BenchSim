@@ -2,6 +2,29 @@
 
 All notable changes to BenchSim are documented in this file.
 
+## [0.1.2-rc1] - 2026-10-08
+
+### Added
+- Managed Icestudio project workflow: select an `.ice` file and BenchSim creates a dedicated `.benchsim` scenario without requiring Icestudio to export a testbench.
+- Automatic testbench wrapper generation from the current Icestudio interface, including default clock support and direct input/output waveform selection.
+- Persistent stimuli reconciliation for externally regenerated testbenches.
+- External-file conflict banner that keeps simulation disabled until local or disk changes are explicitly resolved.
+- macOS distributables for Apple Silicon (`arm64`) and Intel (`x86_64`).
+- Manual GitHub Actions builds for Linux, Windows, and macOS artifacts without creating a release.
+- Automated tests for managed project workflows, stimuli parsing, update selection, and macOS architecture selection.
+
+### Changed
+- Refactored main-window workflows into focused controllers for project loading, simulation, settings, updates, editor tools, and theme handling.
+- Improved GTKWave signal ordering and display configuration for generated Icestudio simulations.
+- Extended CI coverage through Python 3.14 while keeping Python 3.12 as the release build runtime.
+- Pinned GitHub Actions Linux runners to Ubuntu 24.04 and updated artifact actions for Node.js 24.
+
+### Fixed
+- Preserved local edits after choosing to keep them during an external-file conflict.
+- Normalized Windows testbench line endings during saves.
+- Restored recent-project selection and editor zoom behavior.
+- Improved scenario indentation, autocomplete, and time-scale guidance.
+
 ## [0.1.0] - 2026-02-15
 
 ### Added
