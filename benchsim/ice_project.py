@@ -223,6 +223,7 @@ class VerilogInterface:
         return (
             "// BenchSim simulation scenario\n"
             f"// Design under test: {self.module_name}\n"
+            "// Time scale: 1 ns / 1 ps. A delay of #1 equals 1 ns.\n"
             "// <BENCHSIM-INTERFACE>\n"
             "// Inputs you can drive:\n"
             f"{input_text}\n"

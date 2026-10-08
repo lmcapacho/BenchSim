@@ -35,6 +35,7 @@ endmodule
             scenario = workspace.scenario.read_text(encoding="utf-8")
             wrapper = workspace.wrapper.read_text(encoding="utf-8")
 
+            self.assertIn("Time scale: 1 ns / 1 ps. A delay of #1 equals 1 ns.", scenario)
             self.assertIn("//   clk", scenario)
             self.assertIn("//   X [7:0]", scenario)
             self.assertIn("//   S [7:0]", scenario)
@@ -64,4 +65,3 @@ endmodule
             refreshed = workspace.scenario.read_text(encoding="utf-8")
             self.assertIn("//   rst", refreshed)
             self.assertIn("#5 X = 8'h2A;", refreshed)
-
